@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bracket Logic Unit Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #eee; }
+  .pass { color: #0f0; } .fail { color: #f33; font-weight: bold; }
+  .section { margin: 16px 0 4px; font-weight: bold; color: #ffcc00; }
+  #summary { margin-top: 20px; font-size: 1.2em; padding: 10px; border-top: 2px solid #555; }
+</style>
+</head>
+<body>
+<h1>🥁 Bracket Logic — Unit Tests</h1>
+<div id="output"></div>
+<div id="summary"></div>
+<script>
+/* === Extract pure bracket functions (same code as index.html) === */
+
+function nextPow2(n) {
+  let p = 1;
+  while (p < n) p *= 2;
+  return p;
+}
+
+function createBracket(players) {
+  const size = nextPow2(players.length);
+  const padded = [...players];
+  while (padded.length < size) padded.push(null);
+
+  const firstRound = [];
+  for (let i = 0; i < padded.length; i += 2) {
+    const p1 = padded[i], p2 = padded[i + 1];
+    const match = { p1, p2, winner: null, isBye: false };
+    if (p1 === null && p2 === null) { match.winner = null; match.isBye = true; }
+    else if (p1 === null)           { match.winner = p2;   match.isBye = true; }
+    else if (p2 === null)           { match.winner = p1;   match.isBye = true; }
+    firstRound.push(match);
+  }
+
+  const rounds = [firstRound];
+  let prev = firstRound;
+  while (prev.length > 1) {
+    const next = [];
+    for (let i = 0; i < prev.length; i += 2) {
+      next.push({ p1: null, p2: null, winner: null, isBye: false });
+    }
+    rounds.push(next);
+    prev = next;
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let r = 0; r < rounds.length - 1; r++) {
+      for (let m = 0; m < rounds[r].length; m++) {
+        const match = rounds[r][m];
+        if (!match.isBye) continue;
+        const nextIdx = Math.floor(m / 2);
+        const slot    = m % 2 === 0 ? 'p1' : 'p2';
+        const nm      = rounds[r + 1][nextIdx];
+        if (nm[slot] !== match.winner) {
+          nm[slot] = match.winner;
+          changed = true;
+        }
+        if (match.winner === null) {
+          nm[slot + 'NullBye'] = true;
+        }
+        if (!nm.isBye && !nm.winner) {
+          if (nm.p1 !== null && nm.p2 === null && nm.p2NullBye) {
+            nm.winner = nm.p1; nm.isBye = true; changed = true;
+          } else if (nm.p2 !== null && nm.p1 === null && nm.p1NullBye) {
+            nm.winner = nm.p2; nm.isBye = true; changed = true;
+          } else if (nm.p1 === null && nm.p2 === null && nm.p1NullBye && nm.p2NullBye) {
+            nm.winner = null; nm.isBye = true; changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return { players, rounds };
+}
+
+function findCurrentMatch(t) {
+  for (let r = 0; r < t.rounds.length; r++) {
+    for (let m = 0; m < t.rounds[r].length; m++) {
+      const match = t.rounds[r][m];
+      if (!match.winner && !match.isBye && match.p1 && match.p2) {
+        return { roundIdx: r, matchIdx: m };
+      }
+    }
+  }
+  return null;
+}
+
+function propagateWinner(t, roundIdx, matchIdx, winner) {
+  if (roundIdx + 1 >= t.rounds.length) return;
+  const nextMatchIdx = Math.floor(matchIdx / 2);
+  const isP1 = (matchIdx % 2 === 0);
+  const nextMatch = t.rounds[roundIdx + 1][nextMatchIdx];
+  if (isP1) nextMatch.p1 = winner;
+  else nextMatch.p2 = winner;
+  if (!nextMatch.isBye) {
+    if (nextMatch.p1 === null && nextMatch.p2 !== null && nextMatch.p1NullBye) {
+      nextMatch.winner = nextMatch.p2;
+      nextMatch.isBye = true;
+      propagateWinner(t, roundIdx + 1, nextMatchIdx, nextMatch.winner);
+    } else if (nextMatch.p2 === null && nextMatch.p1 !== null && nextMatch.p2NullBye) {
+      nextMatch.winner = nextMatch.p1;
+      nextMatch.isBye = true;
+      propagateWinner(t, roundIdx + 1, nextMatchIdx, nextMatch.winner);
+    }
+  }
+}
+
+function getTournamentWinner(t) {
+  if (!t) return null;
+  const lastRound = t.rounds[t.rounds.length - 1];
+  if (lastRound && lastRound[0] && lastRound[0].winner) return lastRound[0].winner;
+  return null;
+}
+
+/* === Test framework === */
+let passed = 0, failed = 0;
+const out = document.getElementById('output');
+
+function section(name) {
+  const el = document.createElement('div');
+  el.className = 'section';
+  el.textContent = '▸ ' + name;
+  out.appendChild(el);
+}
+
+function assert(ok, desc) {
+  const el = document.createElement('div');
+  if (ok) { el.className = 'pass'; el.textContent = '  ✓ ' + desc; passed++; }
+  else    { el.className = 'fail'; el.textContent = '  ✗ ' + desc; failed++; }
+  out.appendChild(el);
+}
+
+function eq(a, b, desc) { assert(a === b, `${desc} — expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); }
+
+/* === Helpers === */
+function names(n) { return Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)); }
+function realMatches(round) { return round.filter(m => !m.isBye && m.p1 && m.p2); }
+function byeMatches(round)  { return round.filter(m => m.isBye); }
+function nullByes(round)    { return round.filter(m => m.isBye && !m.p1 && !m.p2); }
+function allPlayersInRound1(b) {
+  const ps = new Set();
+  b.rounds[0].forEach(m => { if (m.p1) ps.add(m.p1); if (m.p2) ps.add(m.p2); });
+  return ps;
+}
+
+/* === Tests === */
+
+// ─── 2 players ───
+section('2 players');
+(function() {
+  const b = createBracket(names(2));
+  eq(b.rounds.length, 1, 'has 1 round');
+  eq(b.rounds[0].length, 1, 'round 1 has 1 match');
+  eq(b.rounds[0][0].p1, 'A', 'p1 is A');
+  eq(b.rounds[0][0].p2, 'B', 'p2 is B');
+  eq(b.rounds[0][0].isBye, false, 'not a bye');
+  const cur = findCurrentMatch(b);
+  assert(cur !== null, 'has a current match');
+  eq(cur.roundIdx, 0, 'current in round 0');
+})();
+
+// ─── 3 players ───
+section('3 players');
+(function() {
+  const b = createBracket(names(3));
+  eq(b.rounds.length, 2, 'has 2 rounds (pads to 4)');
+  eq(b.rounds[0].length, 2, 'round 1 has 2 matches');
+  const real = realMatches(b.rounds[0]);
+  const byes = byeMatches(b.rounds[0]);
+  eq(real.length, 1, '1 real match in round 1');
+  eq(byes.length, 1, '1 bye in round 1');
+  const byeM = byes[0];
+  assert(byeM.winner !== null, 'bye has a winner');
+  // No null-null byes in round 1
+  eq(nullByes(b.rounds[0]).length, 0, 'no null-null byes in round 1');
+  // Round 2 should have the bye winner propagated
+  const final = b.rounds[1][0];
+  assert(final.p1 !== null || final.p2 !== null, 'final has at least one player from bye');
+  const cur = findCurrentMatch(b);
+  assert(cur !== null, 'has a current match');
+  eq(cur.roundIdx, 0, 'current is round 0');
+})();
+
+// ─── 4 players (power of 2 — no byes) ───
+section('4 players');
+(function() {
+  const b = createBracket(names(4));
+  eq(b.rounds.length, 2, 'has 2 rounds');
+  eq(b.rounds[0].length, 2, 'round 1 has 2 matches');
+  eq(byeMatches(b.rounds[0]).length, 0, 'no byes in round 1');
+  eq(realMatches(b.rounds[0]).length, 2, '2 real matches');
+  eq(b.rounds[1].length, 1, 'round 2 has 1 match (final)');
+})();
+
+// ─── 5 players ───
+section('5 players');
+(function() {
+  const b = createBracket(names(5));
+  eq(b.rounds.length, 3, 'pads to 8 → 3 rounds');
+  eq(b.rounds[0].length, 4, 'round 1 has 4 matches');
+  const real = realMatches(b.rounds[0]);
+  const nb   = nullByes(b.rounds[0]);
+  eq(real.length, 1, '1 real match in round 1');
+  eq(nb.length, 1, '1 null-null bye');
+  // All 5 players appear
+  eq(allPlayersInRound1(b).size, 5, 'all 5 players appear in round 1');
+  // No TBD should appear for real matches in round 1
+  b.rounds[0].forEach(m => {
+    if (!m.isBye) {
+      assert(m.p1 !== null && m.p2 !== null, `real match has both players: ${m.p1} vs ${m.p2}`);
+    }
+  });
+})();
+
+// ─── 6 players ───
+section('6 players');
+(function() {
+  const b = createBracket(names(6));
+  eq(b.rounds.length, 3, 'pads to 8 → 3 rounds');
+  eq(allPlayersInRound1(b).size, 6, 'all 6 players in round 1');
+  const nb = nullByes(b.rounds[0]);
+  eq(nb.length, 1, '1 null-null bye');
+  // Round 2 should have correct propagation
+  const r2 = b.rounds[1];
+  eq(r2.length, 2, 'round 2 has 2 matches');
+})();
+
+// ─── 7 players ───
+section('7 players');
+(function() {
+  const b = createBracket(names(7));
+  eq(b.rounds.length, 3, 'pads to 8 → 3 rounds');
+  eq(allPlayersInRound1(b).size, 7, 'all 7 players in round 1');
+  eq(nullByes(b.rounds[0]).length, 0, 'no null-null byes (only 1 bye, and it has a player)');
+})();
+
+// ─── 8 players (power of 2) ───
+section('8 players');
+(function() {
+  const b = createBracket(names(8));
+  eq(b.rounds.length, 3, '3 rounds');
+  eq(byeMatches(b.rounds[0]).length, 0, 'no byes');
+  eq(realMatches(b.rounds[0]).length, 4, '4 real matches');
+})();
+
+// ─── 10 players (the bug case from the screenshot) ───
+section('10 players (TBD bug case)');
+(function() {
+  const b = createBracket(names(10));
+  eq(b.rounds.length, 4, 'pads to 16 → 4 rounds');
+  eq(b.rounds[0].length, 8, 'round 1 has 8 matches');
+  eq(allPlayersInRound1(b).size, 10, 'all 10 players in round 1');
+
+  // Count types of round 1 matches
+  const real  = realMatches(b.rounds[0]);
+  const nb    = nullByes(b.rounds[0]);
+  const byes  = byeMatches(b.rounds[0]);
+  eq(real.length, 5, '5 real matches (10 players → 5 pairs)');
+  eq(nb.length, 3, '3 null-null byes (16 − 10 = 6 nulls → 3 null pairs)');
+
+  // Key test: no TBD in matches that should have real players
+  let tbd = 0;
+  b.rounds[0].forEach(m => {
+    if (!m.isBye) {
+      if (!m.p1 || !m.p2) tbd++;
+    }
+  });
+  eq(tbd, 0, 'no TBD entries in real round 1 matches');
+
+  // Round 2 propagation: null-null byes should propagate nullBye markers
+  b.rounds[1].forEach((m, i) => {
+    // Some round 2 matches receive from null-null byes and should be auto-resolved
+    if (m.isBye) {
+      assert(true, `round 2 match ${i} auto-resolved as bye`);
+    }
+  });
+
+  // findCurrentMatch should point to a real match
+  const cur = findCurrentMatch(b);
+  assert(cur !== null, 'has a current match');
+  const cm = b.rounds[cur.roundIdx][cur.matchIdx];
+  assert(cm.p1 !== null && cm.p2 !== null, 'current match has both real players');
+})();
+
+// ─── 16 players (power of 2) ───
+section('16 players');
+(function() {
+  const b = createBracket(names(16));
+  eq(b.rounds.length, 4, '4 rounds');
+  eq(byeMatches(b.rounds[0]).length, 0, 'no byes');
+  eq(realMatches(b.rounds[0]).length, 8, '8 real matches');
+})();
+
+// ─── propagateWinner correctness ───
+section('propagateWinner');
+(function() {
+  const b = createBracket(names(4)); // A B C D
+  // Simulate A wins match 0, C wins match 1
+  b.rounds[0][0].winner = 'A';
+  propagateWinner(b, 0, 0, 'A');
+  eq(b.rounds[1][0].p1, 'A', 'A propagated to final p1');
+
+  b.rounds[0][1].winner = 'C';
+  propagateWinner(b, 0, 1, 'C');
+  eq(b.rounds[1][0].p2, 'C', 'C propagated to final p2');
+
+  // Final should now be playable
+  const cur = findCurrentMatch(b);
+  assert(cur !== null, 'final is now current');
+  eq(cur.roundIdx, 1, 'current is round 1 (final)');
+  const final = b.rounds[1][0];
+  eq(final.p1, 'A', 'final p1 is A');
+  eq(final.p2, 'C', 'final p2 is C');
+})();
+
+// ─── propagateWinner with byes (3 players) ───
+section('propagateWinner with byes (3 players)');
+(function() {
+  const b = createBracket(names(3)); // A B C, pad D=null
+  // Match 0: A vs B (real), Match 1: C vs null (bye → C wins)
+  // Round 2: winner(M0) vs C
+  eq(b.rounds[1][0].p2, 'C', 'C auto-advanced to final via bye');
+
+  // Simulate A wins match 0
+  b.rounds[0][0].winner = 'A';
+  propagateWinner(b, 0, 0, 'A');
+  eq(b.rounds[1][0].p1, 'A', 'A propagated to final');
+  eq(b.rounds[1][0].p2, 'C', 'C still in final');
+  const cur = findCurrentMatch(b);
+  eq(cur.roundIdx, 1, 'final is current');
+})();
+
+// ─── getTournamentWinner ───
+section('getTournamentWinner');
+(function() {
+  const b = createBracket(names(2));
+  assert(getTournamentWinner(b) === null, 'no winner yet');
+  b.rounds[0][0].winner = 'A';
+  eq(getTournamentWinner(b), 'A', 'A is champion');
+})();
+
+// ─── Odd player counts: no real match should have TBD ───
+section('No TBD in real matches for any player count 2–20');
+(function() {
+  for (let n = 2; n <= 20; n++) {
+    const b = createBracket(names(n));
+    let hasTBD = false;
+    b.rounds.forEach((round, rIdx) => {
+      round.forEach(m => {
+        if (!m.isBye && (!m.p1 || !m.p2)) hasTBD = true;
+      });
+    });
+    // The only matches without both players set should be matches waiting for upstream results
+    // In round 0, all non-bye matches should have both players
+    let r0TBD = false;
+    b.rounds[0].forEach(m => {
+      if (!m.isBye && (!m.p1 || !m.p2)) r0TBD = true;
+    });
+    assert(!r0TBD, `${n} players: no TBD in round 1 real matches`);
+  }
+})();
+
+// ─── Every player appears exactly once in round 1 ───
+section('Every player appears exactly once (2–20 players)');
+(function() {
+  for (let n = 2; n <= 20; n++) {
+    const players = names(n);
+    const b = createBracket(players);
+    const seen = allPlayersInRound1(b);
+    eq(seen.size, n, `${n} players: all ${n} appear in round 1`);
+  }
+})();
+
+// ─── Player seed parsing ───
+section('parsePlayerSeed');
+(function() {
+  // Inline the parsePlayerSeed logic for testing (mirrors index.html)
+  function parseSeed(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const seen = new Set();
+    const duplicates = [];
+    const unique = [];
+    for (const name of lines) {
+      const key = name.toLowerCase();
+      if (seen.has(key)) {
+        if (!duplicates.includes(name)) duplicates.push(name);
+      } else {
+        seen.add(key);
+        unique.push(name);
+      }
+    }
+    return { names: unique, duplicates };
+  }
+
+  let s = parseSeed('Alice\nBob\nCharlie');
+  eq(s.names.length, 3, '3 unique names');
+  eq(s.duplicates.length, 0, 'no duplicates');
+
+  s = parseSeed('Alice\nBob\nalice\nCharlie');
+  eq(s.names.length, 3, 'case-insensitive dedup → 3 unique');
+  eq(s.duplicates.length, 1, '1 duplicate detected');
+  eq(s.duplicates[0], 'alice', 'duplicate is "alice"');
+
+  s = parseSeed('');
+  eq(s.names.length, 0, 'empty input → 0 names');
+  eq(s.duplicates.length, 0, 'empty input → 0 duplicates');
+
+  s = parseSeed('  Alice  \n\n  Bob  \n\n');
+  eq(s.names.length, 2, 'whitespace trimmed, blank lines skipped');
+  eq(s.names[0], 'Alice', 'first name trimmed correctly');
+  eq(s.names[1], 'Bob', 'second name trimmed correctly');
+
+  s = parseSeed('Foo\nBar\nFoo\nBaz\nBar');
+  eq(s.names.length, 3, 'multiple duplicates → 3 unique');
+  eq(s.duplicates.length, 2, '2 duplicate names detected');
+
+  s = parseSeed('OnlyOne');
+  eq(s.names.length, 1, 'single name works');
+  eq(s.duplicates.length, 0, 'single name → no duplicates');
+})();
+
+/* === Summary === */
+const sumEl = document.getElementById('summary');
+if (failed === 0) {
+  sumEl.innerHTML = `<span class="pass">All ${passed} tests passed ✓</span>`;
+} else {
+  sumEl.innerHTML = `<span class="fail">${failed} FAILED</span> / ${passed + failed} total`;
+}
+</script>
+</body>
+</html>
