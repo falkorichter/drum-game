@@ -519,6 +519,22 @@ input[type="range"]::-webkit-slider-thumb {
   margin-left: 2px;
 }
 
+.bracket-match.selectable {
+  cursor: pointer;
+}
+.bracket-match.selectable:hover {
+  border-color: var(--accent3);
+  box-shadow: 0 0 16px rgba(255,204,0,0.25);
+}
+.bracket-match.selectable::after {
+  content: '▶ Click to play';
+  display: block;
+  text-align: center;
+  font-size: 0.6rem;
+  padding: 2px 0 4px;
+  color: var(--accent3);
+  letter-spacing: 0.5px;
+}
 .bracket-match.reviewable {
   cursor: pointer;
 }
@@ -2146,8 +2162,18 @@ function renderBracket() {
     replayBtn.style.display = '';
   } else if (current) {
     const roundNames = getRoundNames(tournament.rounds.length);
-    document.getElementById('bracket-round-info').textContent =
-      `Current: ${roundNames[current.roundIdx]}`;
+    const finalM = tournament.rounds[tournament.rounds.length - 1][0];
+    const inFinalSeries = isFinalMatch(tournament, current.roundIdx) && finalM.finalGames && finalM.finalGames.length > 0;
+    if (inFinalSeries) {
+      const s1 = finalM.finalScoreP1 || 0;
+      const s2 = finalM.finalScoreP2 || 0;
+      const gn = finalM.finalGames.length + 1;
+      document.getElementById('bracket-round-info').textContent =
+        `Final – Game ${gn} (${s1} – ${s2}, Best of 3)`;
+    } else {
+      document.getElementById('bracket-round-info').textContent =
+        `Current: ${roundNames[current.roundIdx]}`;
+    }
     document.getElementById('bracket-start-btn').textContent = '⚡ Start Match';
     document.getElementById('bracket-start-btn').onclick = startCurrentMatch;
     document.getElementById('bracket-start-btn').disabled = !canStartMatch().ok;
@@ -2179,12 +2205,17 @@ function renderBracket() {
       const isCurrent = current && current.roundIdx === rIdx && current.matchIdx === mIdx;
       // A match is reviewable if it completed (has a winner), is not a bye, and has real players
       const isReviewable = !match.isBye && match.winner && match.p1 && match.p2;
+      // A first-round match is selectable (clickable to play) if it's playable (in round 0)
+      const isSelectable = rIdx === 0 && !match.winner && !match.isBye && match.p1 && match.p2;
       const matchEl = document.createElement('div');
       matchEl.className = 'bracket-match' +
         (isCurrent ? ' current' : (match.winner ? ' completed' : '')) +
-        (isReviewable ? ' reviewable' : '');
+        (isReviewable ? ' reviewable' : '') +
+        (isSelectable ? ' selectable' : '');
       if (isReviewable) {
         matchEl.onclick = () => showMatchReview(match, rIdx, mIdx);
+      } else if (isSelectable) {
+        matchEl.onclick = () => startSpecificMatch(rIdx, mIdx);
       }
 
       const matchNumEl = document.createElement('div');
@@ -2218,6 +2249,17 @@ function renderBracket() {
 
       matchEl.appendChild(p1El);
       matchEl.appendChild(p2El);
+
+      // Show best-of-three score for the final
+      if (isFinalMatch(tournament, rIdx) && match.finalGames && match.finalGames.length > 0) {
+        const scoreEl = document.createElement('div');
+        scoreEl.style.cssText = 'text-align:center;font-size:0.7rem;padding:4px 8px;color:var(--text-dim);border-top:1px solid var(--surface3);letter-spacing:1px;';
+        const s1 = match.finalScoreP1 || 0;
+        const s2 = match.finalScoreP2 || 0;
+        scoreEl.textContent = `Best of 3: ${s1} – ${s2}`;
+        matchEl.appendChild(scoreEl);
+      }
+
       col.appendChild(matchEl);
     });
 
@@ -2256,21 +2298,39 @@ function computePlayerStats(t) {
   // Returns { playerName: { devs: [absMs, ...], stillIn: bool } }
   const stats = {};
   const eliminated = new Set();
-  t.rounds.forEach(round => {
+  t.rounds.forEach((round, rIdx) => {
     round.forEach(match => {
-      if (match.isBye || !match.winner) return;
-      // Record deviations for both players who actually hit
-      if (match.p1 && match.p1Dev !== null && match.p1Dev !== undefined) {
-        if (!stats[match.p1]) stats[match.p1] = { devs: [] };
-        stats[match.p1].devs.push(Math.abs(match.p1Dev) * 1000);
-      }
-      if (match.p2 && match.p2Dev !== null && match.p2Dev !== undefined) {
-        if (!stats[match.p2]) stats[match.p2] = { devs: [] };
-        stats[match.p2].devs.push(Math.abs(match.p2Dev) * 1000);
+      if (match.isBye) return;
+
+      // For best-of-three finals, record deviations from each game
+      if (match.finalGames && match.finalGames.length > 0) {
+        match.finalGames.forEach(game => {
+          if (match.p1 && game.p1Dev !== null && game.p1Dev !== undefined) {
+            if (!stats[match.p1]) stats[match.p1] = { devs: [] };
+            stats[match.p1].devs.push(Math.abs(game.p1Dev) * 1000);
+          }
+          if (match.p2 && game.p2Dev !== null && game.p2Dev !== undefined) {
+            if (!stats[match.p2]) stats[match.p2] = { devs: [] };
+            stats[match.p2].devs.push(Math.abs(game.p2Dev) * 1000);
+          }
+        });
+      } else {
+        if (!match.winner) return;
+        // Record deviations for both players who actually hit
+        if (match.p1 && match.p1Dev !== null && match.p1Dev !== undefined) {
+          if (!stats[match.p1]) stats[match.p1] = { devs: [] };
+          stats[match.p1].devs.push(Math.abs(match.p1Dev) * 1000);
+        }
+        if (match.p2 && match.p2Dev !== null && match.p2Dev !== undefined) {
+          if (!stats[match.p2]) stats[match.p2] = { devs: [] };
+          stats[match.p2].devs.push(Math.abs(match.p2Dev) * 1000);
+        }
       }
       // Track who was eliminated
-      const loser = match.winner === match.p1 ? match.p2 : match.p1;
-      if (loser) eliminated.add(loser);
+      if (match.winner) {
+        const loser = match.winner === match.p1 ? match.p2 : match.p1;
+        if (loser) eliminated.add(loser);
+      }
     });
   });
   // Mark eliminated players
@@ -2360,22 +2420,18 @@ function showMatchReview(match, roundIdx, matchIdx) {
 /* ============================================================
    MATCH FLOW
    ============================================================ */
-function startCurrentMatch() {
+function startSpecificMatch(roundIdx, matchIdx) {
   if (!tournament) return;
   const check = canStartMatch();
   if (!check.ok) { alert(check.reason); return; }
 
-  const current = findCurrentMatch(tournament);
-  if (!current) {
-    renderBracket();
-    return;
-  }
+  const match = tournament.rounds[roundIdx][matchIdx];
+  if (!match || match.winner || match.isBye || !match.p1 || !match.p2) return;
 
-  const match = tournament.rounds[current.roundIdx][current.matchIdx];
   matchState.p1Name = match.p1;
   matchState.p2Name = match.p2;
-  matchState.currentRoundIdx = current.roundIdx;
-  matchState.currentMatchIdx = current.matchIdx;
+  matchState.currentRoundIdx = roundIdx;
+  matchState.currentMatchIdx = matchIdx;
 
   // Reset
   matchState.p1HitTime = null;
@@ -2401,6 +2457,18 @@ function startCurrentMatch() {
 
   // Start countdown after a short delay
   setTimeout(() => beginCountdown(), 800);
+}
+
+function startCurrentMatch() {
+  if (!tournament) return;
+
+  const current = findCurrentMatch(tournament);
+  if (!current) {
+    renderBracket();
+    return;
+  }
+
+  startSpecificMatch(current.roundIdx, current.matchIdx);
 }
 
 function beginCountdown() {
@@ -2571,6 +2639,10 @@ function flashHalf(player) {
   setTimeout(() => el.classList.remove('hit'), 400);
 }
 
+function isFinalMatch(t, roundIdx) {
+  return roundIdx === t.rounds.length - 1;
+}
+
 function endMatch() {
   if (matchState.phase === 'ended') return;
   matchState.phase = 'ended';
@@ -2604,11 +2676,36 @@ function endMatch() {
   // Save winner to tournament
   if (winner) {
     const match = tournament.rounds[matchState.currentRoundIdx][matchState.currentMatchIdx];
-    match.winner = winner;
-    match.p1Dev = p1Dev;
-    match.p2Dev = p2Dev;
-    propagateWinner(tournament, matchState.currentRoundIdx, matchState.currentMatchIdx, winner);
-    saveTournament(tournament);
+    const isFinal = isFinalMatch(tournament, matchState.currentRoundIdx);
+
+    if (isFinal) {
+      // Best-of-three logic for the final
+      if (!match.finalGames) match.finalGames = [];
+      if (!match.finalScoreP1) match.finalScoreP1 = 0;
+      if (!match.finalScoreP2) match.finalScoreP2 = 0;
+
+      // Record this game
+      match.finalGames.push({ winner, p1Dev, p2Dev });
+      if (winner === match.p1) match.finalScoreP1++;
+      else match.finalScoreP2++;
+
+      // Store latest deviations for display
+      match.p1Dev = p1Dev;
+      match.p2Dev = p2Dev;
+
+      // Check if series is won (first to 2)
+      if (match.finalScoreP1 >= 2 || match.finalScoreP2 >= 2) {
+        match.winner = match.finalScoreP1 >= 2 ? match.p1 : match.p2;
+      }
+      // Otherwise, no match.winner yet — series continues
+      saveTournament(tournament);
+    } else {
+      match.winner = winner;
+      match.p1Dev = p1Dev;
+      match.p2Dev = p2Dev;
+      propagateWinner(tournament, matchState.currentRoundIdx, matchState.currentMatchIdx, winner);
+      saveTournament(tournament);
+    }
   }
 
   showResultScreen(winner, false);
@@ -2671,6 +2768,14 @@ function showResultScreen(winner, isTie = false, isReview = false) {
 
   const tournamentWinner = getTournamentWinner(tournament);
 
+  // Detect if we're in a best-of-three final series that's still in progress
+  const finalMatch = tournament ? tournament.rounds[tournament.rounds.length - 1][0] : null;
+  const isFinalSeries = !isReview && finalMatch && finalMatch.finalGames && finalMatch.finalGames.length > 0;
+  const seriesInProgress = isFinalSeries && !finalMatch.winner;
+  const scoreP1 = finalMatch && finalMatch.finalScoreP1 ? finalMatch.finalScoreP1 : 0;
+  const scoreP2 = finalMatch && finalMatch.finalScoreP2 ? finalMatch.finalScoreP2 : 0;
+  const gameNum = finalMatch && finalMatch.finalGames ? finalMatch.finalGames.length : 0;
+
   // Banner
   const banner = document.getElementById('result-winner-banner');
   if (isTie) {
@@ -2682,13 +2787,25 @@ function showResultScreen(winner, isTie = false, isReview = false) {
       <div class="result-winner-sub text-dim">Replay with new random parameters</div>
     `;
   } else if (tournamentWinner) {
+    const seriesStr = (finalMatch && finalMatch.finalGames)
+      ? `<div class="result-winner-sub text-dim" style="margin-top:8px;">Final score: ${escapeHtml(finalMatch.p1)} ${scoreP1} – ${scoreP2} ${escapeHtml(finalMatch.p2)}</div>` : '';
     banner.style.background = 'linear-gradient(135deg, rgba(255,204,0,0.2), rgba(255,100,0,0.2))';
     banner.style.border = '3px solid var(--accent3)';
     banner.innerHTML = `
       <div class="result-winner-label text-accent3">🏆 TOURNAMENT CHAMPION 🏆</div>
       <div class="result-winner-name champion-glow text-accent3">${escapeHtml(tournamentWinner)}</div>
+      ${seriesStr}
     `;
     launchConfetti();
+  } else if (winner && seriesInProgress) {
+    // Final series game won, but series not yet decided
+    banner.style.background = 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,100,50,0.15))';
+    banner.style.border = '3px solid var(--success)';
+    banner.innerHTML = `
+      <div class="result-winner-label text-success">🏁 Final – Game ${gameNum} Winner</div>
+      <div class="result-winner-name text-success">${escapeHtml(winner)}</div>
+      <div class="result-winner-sub text-dim" style="margin-top:8px;">Series: ${escapeHtml(finalMatch.p1)} ${scoreP1} – ${scoreP2} ${escapeHtml(finalMatch.p2)} (Best of 3)</div>
+    `;
   } else if (winner) {
     banner.style.background = 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,100,50,0.15))';
     banner.style.border = '3px solid var(--success)';
@@ -2752,7 +2869,7 @@ function showResultScreen(winner, isTie = false, isReview = false) {
     continueBtn.textContent = '⚡ Replay (Tie)';
     continueBtn.onclick = () => {
       stopGameAudio();
-      startCurrentMatch();
+      startSpecificMatch(matchState.currentRoundIdx, matchState.currentMatchIdx);
     };
   } else if (tournamentWinner) {
     continueBtn.textContent = '🏆 See Champion';
@@ -2764,7 +2881,14 @@ function showResultScreen(winner, isTie = false, isReview = false) {
       const match = tournament.rounds[matchState.currentRoundIdx][matchState.currentMatchIdx];
       match.winner = null;
       saveTournament(tournament);
-      startCurrentMatch();
+      startSpecificMatch(matchState.currentRoundIdx, matchState.currentMatchIdx);
+    };
+  } else if (seriesInProgress) {
+    // Final series: next game
+    continueBtn.textContent = `⚡ Next Game (Game ${gameNum + 1})`;
+    continueBtn.onclick = () => {
+      stopGameAudio();
+      startSpecificMatch(matchState.currentRoundIdx, matchState.currentMatchIdx);
     };
   } else {
     continueBtn.textContent = 'Next Match →';
@@ -2922,7 +3046,7 @@ function onResultContinue() {
 function onResultRematch() {
   // Replay the same match with new random parameters; winner stays in bracket
   stopGameAudio();
-  startCurrentMatch();
+  startSpecificMatch(matchState.currentRoundIdx, matchState.currentMatchIdx);
 }
 /* ============================================================
    CONFETTI

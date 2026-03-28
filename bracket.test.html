@@ -121,6 +121,10 @@ function getTournamentWinner(t) {
   return null;
 }
 
+function isFinalMatch(t, roundIdx) {
+  return roundIdx === t.rounds.length - 1;
+}
+
 /* === Test framework === */
 let passed = 0, failed = 0;
 const out = document.getElementById('output');
@@ -426,6 +430,110 @@ section('parsePlayerSeed');
   s = parseSeed('OnlyOne');
   eq(s.names.length, 1, 'single name works');
   eq(s.duplicates.length, 0, 'single name → no duplicates');
+})();
+
+// ─── isFinalMatch ───
+section('isFinalMatch');
+(function() {
+  const b = createBracket(names(4)); // 2 rounds: round 0 + final
+  assert(!isFinalMatch(b, 0), 'round 0 is not the final');
+  assert(isFinalMatch(b, 1), 'round 1 (last) is the final');
+
+  const b8 = createBracket(names(8)); // 3 rounds
+  assert(!isFinalMatch(b8, 0), 'round 0 is not the final (8 players)');
+  assert(!isFinalMatch(b8, 1), 'round 1 is not the final (8 players)');
+  assert(isFinalMatch(b8, 2), 'round 2 is the final (8 players)');
+})();
+
+// ─── First-round match selectability ───
+section('First-round match selectability');
+(function() {
+  const b = createBracket(names(4)); // A vs B, C vs D
+  // All first-round matches with both players and no winner are selectable
+  const r0 = b.rounds[0];
+  let selectableCount = 0;
+  r0.forEach(m => {
+    if (!m.winner && !m.isBye && m.p1 && m.p2) selectableCount++;
+  });
+  eq(selectableCount, 2, '4 players: both round 1 matches are selectable');
+
+  // After one match is played, only the other is selectable
+  r0[1].winner = 'C';
+  propagateWinner(b, 0, 1, 'C');
+  selectableCount = 0;
+  r0.forEach(m => {
+    if (!m.winner && !m.isBye && m.p1 && m.p2) selectableCount++;
+  });
+  eq(selectableCount, 1, 'after 1 match played: 1 selectable match remains');
+})();
+
+// ─── Best-of-three final ───
+section('Best-of-three final');
+(function() {
+  const b = createBracket(names(4)); // A B C D
+  // Play round 0
+  b.rounds[0][0].winner = 'A';
+  propagateWinner(b, 0, 0, 'A');
+  b.rounds[0][1].winner = 'C';
+  propagateWinner(b, 0, 1, 'C');
+
+  const final = b.rounds[1][0];
+  eq(final.p1, 'A', 'final p1 is A');
+  eq(final.p2, 'C', 'final p2 is C');
+  assert(isFinalMatch(b, 1), 'round 1 is the final');
+
+  // Simulate game 1: A wins
+  final.finalGames = [];
+  final.finalScoreP1 = 0;
+  final.finalScoreP2 = 0;
+  final.finalGames.push({ winner: 'A', p1Dev: -0.01, p2Dev: 0.05 });
+  final.finalScoreP1++;
+  eq(final.finalScoreP1, 1, 'after game 1: A has 1 win');
+  eq(final.finalScoreP2, 0, 'after game 1: C has 0 wins');
+  assert(!final.winner, 'no series winner after game 1');
+  assert(getTournamentWinner(b) === null, 'no tournament winner after game 1');
+
+  // findCurrentMatch should still find the final
+  const cur1 = findCurrentMatch(b);
+  assert(cur1 !== null, 'final is still current after game 1');
+  eq(cur1.roundIdx, 1, 'current is round 1 (final)');
+
+  // Simulate game 2: C wins
+  final.finalGames.push({ winner: 'C', p1Dev: 0.08, p2Dev: -0.02 });
+  final.finalScoreP2++;
+  eq(final.finalScoreP1, 1, 'after game 2: A has 1 win');
+  eq(final.finalScoreP2, 1, 'after game 2: C has 1 win');
+  assert(!final.winner, 'no series winner after game 2 (1-1)');
+
+  // Simulate game 3: A wins → series winner
+  final.finalGames.push({ winner: 'A', p1Dev: -0.005, p2Dev: 0.03 });
+  final.finalScoreP1++;
+  eq(final.finalScoreP1, 2, 'after game 3: A has 2 wins');
+  // Set winner since A has 2 wins
+  final.winner = 'A';
+  eq(getTournamentWinner(b), 'A', 'A is tournament champion after winning BO3');
+})();
+
+// ─── Best-of-three: 2-0 sweep ───
+section('Best-of-three: 2-0 sweep');
+(function() {
+  const b = createBracket(names(2)); // A vs B, final is round 0
+  const final = b.rounds[0][0];
+
+  // Simulate game 1: A wins
+  final.finalGames = [];
+  final.finalScoreP1 = 0;
+  final.finalScoreP2 = 0;
+  final.finalGames.push({ winner: 'A', p1Dev: -0.01, p2Dev: 0.05 });
+  final.finalScoreP1++;
+  assert(!final.winner, 'no series winner after game 1');
+
+  // Simulate game 2: A wins again → 2-0 sweep
+  final.finalGames.push({ winner: 'A', p1Dev: -0.003, p2Dev: 0.04 });
+  final.finalScoreP1++;
+  eq(final.finalScoreP1, 2, 'A has 2 wins after sweep');
+  final.winner = 'A';
+  eq(getTournamentWinner(b), 'A', 'A wins BO3 in 2-0 sweep');
 })();
 
 /* === Summary === */
