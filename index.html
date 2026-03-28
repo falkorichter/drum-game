@@ -1087,6 +1087,9 @@ let previewAudioEl = null;    // <audio> for settings preview
 // Waveform editor state
 let waveformAudioBuffer = null; // same as audioBuffer but set when decoded
 let zoomWindowSize = 2.0; // seconds shown in the zoomed waveform view
+let previewStartAcTime = null;  // AudioContext time when preview started
+let previewStartOffset = 0;     // buffer offset (seconds) where preview started
+let previewRafId = null;        // requestAnimationFrame id for playhead animation
 
 // Match state
 let matchState = {
@@ -1235,6 +1238,8 @@ function previewIdleMusic() {
 }
 
 function stopPreview() {
+  cancelPlayheadAnimation();
+  previewStartAcTime = null;
   if (previewAudioEl) {
     previewAudioEl.pause();
     previewAudioEl.src = '';
@@ -1245,6 +1250,8 @@ function stopPreview() {
     previewSource = null;
   }
   stopGameAudio();
+  // Redraw to clear any playhead indicator
+  if (waveformAudioBuffer) { drawWaveform(); drawZoomWaveform(); }
 }
 
 /* ============================================================
@@ -1353,13 +1360,22 @@ async function loadAudioForEditor() {
 function previewAudio() {
   if (!audioBuffer) { alert('Load audio first.'); return; }
   stopPreview();
-  const ctx = getAudioCtx();
-  previewSource = ctx.createBufferSource();
+  const actx = getAudioCtx();
+  previewSource = actx.createBufferSource();
   previewSource.buffer = audioBuffer;
-  previewSource.connect(ctx.destination);
+  previewSource.connect(actx.destination);
   const markPos = parseFloat(document.getElementById('s-mark-position').value) || 0;
   const previewStart = Math.max(0, markPos - 3);
+  previewStartOffset = previewStart;
+  previewStartAcTime = actx.currentTime;
   previewSource.start(0, previewStart);
+  previewSource.onended = () => {
+    previewSource = null;
+    previewStartAcTime = null;
+    cancelPlayheadAnimation();
+    if (waveformAudioBuffer) { drawWaveform(); drawZoomWaveform(); }
+  };
+  startPlayheadAnimation();
 }
 
 let previewSource = null; // AudioBufferSourceNode for settings preview
