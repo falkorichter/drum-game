@@ -929,11 +929,16 @@ input[type="range"]::-webkit-slider-thumb {
       <h3>🎶 Idle Music</h3>
       <div class="form-group">
         <label class="form-label">Idle music URL</label>
-        <input type="text" id="s-idle-music-url" class="form-control" placeholder="http://... MP3 URL played on the idle screen">
+        <input type="text" id="s-idle-music-url" class="form-control" placeholder="http://... MP3 URL played on the idle screen" oninput="onIdleMusicUrlInput()">
       </div>
-      <div class="flex-row">
+      <div class="form-group">
+        <label class="form-label">— or upload file —</label>
+        <input type="file" id="s-idle-music-file" class="form-control" accept="audio/*" onchange="handleIdleMusicFileUpload(event)">
+      </div>
+      <div id="idle-music-status" class="audio-status" style="display:none;"></div>
+      <div class="flex-row mt-1">
         <button class="btn btn-secondary btn-sm" onclick="previewIdleMusic()">▶ Test idle music</button>
-        <button class="btn btn-secondary btn-sm" onclick="stopIdleMusic()">⏹ Stop</button>
+        <button class="btn btn-secondary btn-sm" onclick="stopPreview()">⏹ Stop</button>
       </div>
     </div>
 
@@ -1083,6 +1088,7 @@ let audioBuffer = null;       // decoded game audio
 let audioSource = null;       // currently playing source
 let idleAudioEl = null;       // <audio> for idle music
 let previewAudioEl = null;    // <audio> for settings preview
+let idleMusicObjectUrl = null; // blob URL for uploaded idle music file (session-only)
 
 // Waveform editor state
 let waveformAudioBuffer = null; // same as audioBuffer but set when decoded
@@ -1212,9 +1218,10 @@ function refreshIdleTitle() {
    IDLE MUSIC
    ============================================================ */
 function startIdleMusic() {
-  if (!settings.idleMusicUrl) return;
+  const src = idleMusicObjectUrl || settings.idleMusicUrl;
+  if (!src) return;
   stopIdleMusic();
-  idleAudioEl = new Audio(settings.idleMusicUrl);
+  idleAudioEl = new Audio(src);
   idleAudioEl.loop = true;
   idleAudioEl.volume = 0.4;
   idleAudioEl.play().catch(() => {});
@@ -1230,11 +1237,38 @@ function stopIdleMusic() {
 
 function previewIdleMusic() {
   stopPreview();
-  const url = document.getElementById('s-idle-music-url').value.trim();
-  if (!url) return alert('Enter an idle music URL first.');
-  previewAudioEl = new Audio(url);
+  const src = idleMusicObjectUrl || document.getElementById('s-idle-music-url').value.trim();
+  if (!src) return alert('Enter an idle music URL or upload a file first.');
+  previewAudioEl = new Audio(src);
   previewAudioEl.volume = 0.5;
   previewAudioEl.play().catch(e => alert('Could not play: ' + e.message));
+}
+
+function handleIdleMusicFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  // Revoke previous blob URL to avoid memory leaks
+  if (idleMusicObjectUrl) {
+    URL.revokeObjectURL(idleMusicObjectUrl);
+  }
+  idleMusicObjectUrl = URL.createObjectURL(file);
+  // Clear the URL text field — file takes priority
+  document.getElementById('s-idle-music-url').value = '';
+  const statusEl = document.getElementById('idle-music-status');
+  statusEl.textContent = `📁 ${file.name} (uploaded — session only, re-upload after reload)`;
+  statusEl.className = 'audio-status ok';
+  statusEl.style.display = '';
+}
+
+function onIdleMusicUrlInput() {
+  // When the user types a URL, discard any uploaded file
+  if (idleMusicObjectUrl) {
+    URL.revokeObjectURL(idleMusicObjectUrl);
+    idleMusicObjectUrl = null;
+    document.getElementById('s-idle-music-file').value = '';
+    const statusEl = document.getElementById('idle-music-status');
+    statusEl.style.display = 'none';
+  }
 }
 
 function stopPreview() {
@@ -1267,6 +1301,14 @@ function populateSettingsForm() {
   updateRangeDisplay('s-start-min', 's-start-min-val');
   updateRangeDisplay('s-start-max', 's-start-max-val');
   updateMarkPositionDisplay();
+
+  // Restore idle music file status if a file was uploaded this session
+  const idleStatusEl = document.getElementById('idle-music-status');
+  if (idleMusicObjectUrl) {
+    idleStatusEl.style.display = '';
+  } else {
+    idleStatusEl.style.display = 'none';
+  }
 
   // If we already have a buffer, show waveform
   if (audioBuffer || waveformAudioBuffer) {
@@ -1381,6 +1423,37 @@ function previewAudio() {
 let previewSource = null; // AudioBufferSourceNode for settings preview
 
 /* ============================================================
+   PLAYHEAD ANIMATION (settings preview)
+   ============================================================ */
+function startPlayheadAnimation() {
+  cancelPlayheadAnimation();
+  const buf = waveformAudioBuffer;
+  if (!buf) return;
+  const frame = () => {
+    if (!previewStartAcTime) return;
+    const elapsed = getAudioCtx().currentTime - previewStartAcTime;
+    const pos = previewStartOffset + elapsed;
+    if (pos > buf.duration + 0.1) {
+      previewStartAcTime = null;
+      drawWaveform();
+      drawZoomWaveform();
+      return;
+    }
+    drawWaveform(pos);
+    drawZoomWaveform(pos);
+    previewRafId = requestAnimationFrame(frame);
+  };
+  previewRafId = requestAnimationFrame(frame);
+}
+
+function cancelPlayheadAnimation() {
+  if (previewRafId !== null) {
+    cancelAnimationFrame(previewRafId);
+    previewRafId = null;
+  }
+}
+
+/* ============================================================
    WAVEFORM EDITOR
    ============================================================ */
 function showWaveform() {
@@ -1426,16 +1499,20 @@ function showWaveform() {
     `Duration: ${formatTime(waveformAudioBuffer.duration)} · Click overview for coarse placement · Click zoomed view for fine-tuning`;
 }
 
-function drawWaveform() {
+function drawWaveform(playheadTime) {
   const canvas = document.getElementById('waveform-canvas');
   const wrap = document.getElementById('waveform-wrap');
-  canvas.width = wrap.clientWidth || 760;
-  canvas.height = 100;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = wrap.clientWidth || 760;
+  const cssH = 100;
+  canvas.width  = cssW * dpr;
+  canvas.height = cssH * dpr;
   const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
   const buf = waveformAudioBuffer;
   if (!buf) return;
 
-  const W = canvas.width, H = canvas.height;
+  const W = cssW, H = cssH;
   const data = buf.getChannelData(0);
   const step = Math.ceil(data.length / W);
   const amp = H / 2;
@@ -1485,19 +1562,37 @@ function drawWaveform() {
   ctx.lineTo(markX, H);
   ctx.stroke();
 
-  // Label
+  // Mark label
   ctx.fillStyle = '#ffcc00';
   ctx.font = 'bold 11px sans-serif';
   ctx.fillText('▼ ' + formatTime(markPos), Math.min(markX + 3, W - 70), 12);
+
+  // Playhead indicator (moves with preview)
+  if (playheadTime != null && playheadTime >= 0 && playheadTime <= buf.duration) {
+    const phX = (playheadTime / buf.duration) * W;
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(phX, 0);
+    ctx.lineTo(phX, H);
+    ctx.stroke();
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(formatTime(playheadTime), Math.min(phX + 3, W - 68), H - 3);
+  }
 }
 
-function drawZoomWaveform() {
+function drawZoomWaveform(playheadTime) {
   const canvas = document.getElementById('waveform-zoom-canvas');
   const wrap   = document.getElementById('waveform-zoom-wrap');
   if (!wrap || wrap.style.display === 'none') return;
-  canvas.width  = wrap.clientWidth || 760;
-  canvas.height = 140;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = wrap.clientWidth || 760;
+  const cssH = 140;
+  canvas.width  = cssW * dpr;
+  canvas.height = cssH * dpr;
   const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
   const buf = waveformAudioBuffer;
   if (!buf) return;
 
@@ -1506,7 +1601,7 @@ function drawZoomWaveform() {
   const viewStart = Math.max(0, markPos - halfWin);
   const viewEnd   = Math.min(buf.duration, markPos + halfWin);
 
-  const W = canvas.width, H = canvas.height;
+  const W = cssW, H = cssH;
   const data = buf.getChannelData(0);
   const samplesPerPixel = Math.max(1, Math.ceil(((viewEnd - viewStart) * buf.sampleRate) / W));
   const startSample = Math.floor(viewStart * buf.sampleRate);
@@ -1515,7 +1610,7 @@ function drawZoomWaveform() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
 
-  // Background gradient to hint this is centred on the mark
+  // Background gradient centred on the mark
   const grad = ctx.createLinearGradient(0, 0, W, 0);
   grad.addColorStop(0,   'rgba(255,204,0,0)');
   grad.addColorStop(0.5, 'rgba(255,204,0,0.04)');
@@ -1523,7 +1618,7 @@ function drawZoomWaveform() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // Waveform — brighter in the zoom view
+  // Waveform
   ctx.beginPath();
   ctx.strokeStyle = '#00d4ff';
   ctx.lineWidth = 1;
@@ -1553,9 +1648,16 @@ function drawZoomWaveform() {
     ctx.fillStyle = '#8899bb';
     ctx.fillRect(tx, H - 18, 1, 6);
     if (t % 2 === 0 || zoomWindowSize <= 2) {
-      ctx.fillText(tTime.toFixed(3) + 's', Math.min(tx + 2, W - 36), H - 4);
+      ctx.fillText(formatTime(tTime), Math.min(tx + 2, W - 52), H - 4);
     }
   }
+
+  // Left / right time boundary labels
+  ctx.fillStyle = 'rgba(136,153,187,0.7)';
+  ctx.font = '10px monospace';
+  ctx.fillText(formatTime(viewStart), 4, H - 22);
+  const rightLabel = formatTime(viewEnd);
+  ctx.fillText(rightLabel, W - ctx.measureText(rightLabel).width - 4, H - 22);
 
   // Centre mark line (the target)
   const markX = ((markPos - viewStart) / (viewEnd - viewStart)) * W;
@@ -1574,12 +1676,22 @@ function drawZoomWaveform() {
   const labelX = markX + 5 > W - 70 ? markX - 72 : markX + 5;
   ctx.fillText('🎯 ' + formatTime(markPos), labelX, 16);
 
-  // Left / right time labels
-  ctx.fillStyle = 'rgba(136,153,187,0.7)';
-  ctx.font = '10px monospace';
-  ctx.fillText(formatTime(viewStart), 4, H - 22);
-  const rightLabel = formatTime(viewEnd);
-  ctx.fillText(rightLabel, W - ctx.measureText(rightLabel).width - 4, H - 22);
+  // Playhead indicator (moves with preview)
+  if (playheadTime != null) {
+    const phX = ((playheadTime - viewStart) / (viewEnd - viewStart)) * W;
+    if (phX >= 0 && phX <= W) {
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(phX, 0);
+      ctx.lineTo(phX, H - 18);
+      ctx.stroke();
+      ctx.fillStyle = '#00ff88';
+      ctx.font = 'bold 11px sans-serif';
+      const phLabelX = phX + 4 > W - 72 ? phX - 76 : phX + 4;
+      ctx.fillText('▶ ' + formatTime(playheadTime), phLabelX, H - 22);
+    }
+  }
 }
 
 function changeZoomWindow(delta) {
