@@ -1057,6 +1057,7 @@ input[type="range"]::-webkit-slider-thumb {
 
     <div class="result-buttons">
       <button class="btn btn-primary btn-lg" id="result-continue-btn" onclick="onResultContinue()">Continue →</button>
+      <button class="btn btn-secondary" id="result-rematch-btn" style="display:none;" onclick="onResultRematch()">🔁 Rematch</button>
       <button class="btn btn-secondary" onclick="showScreen('bracket')">📊 Bracket</button>
     </div>
   </div>
@@ -2428,6 +2429,8 @@ function showResultScreen(winner, isTie = false) {
 
   // Continue button
   const continueBtn = document.getElementById('result-continue-btn');
+  const rematchBtn  = document.getElementById('result-rematch-btn');
+  rematchBtn.style.display = 'none'; // hide by default, shown below when applicable
   if (isTie) {
     continueBtn.textContent = '⚡ Replay (Tie)';
     continueBtn.onclick = () => {
@@ -2449,6 +2452,8 @@ function showResultScreen(winner, isTie = false) {
   } else {
     continueBtn.textContent = 'Next Match →';
     continueBtn.onclick = onResultContinue;
+    // Show rematch button for any concluded match with a winner
+    rematchBtn.style.display = '';
   }
 
   document.getElementById('screen-match').classList.remove('active');
@@ -2563,6 +2568,11 @@ function onResultContinue() {
   showScreen('bracket');
 }
 
+function onResultRematch() {
+  // Replay the same match with new random parameters; winner stays in bracket
+  stopGameAudio();
+  startCurrentMatch();
+}
 /* ============================================================
    CONFETTI
    ============================================================ */
