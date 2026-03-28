@@ -1973,7 +1973,7 @@ function renderPlayerList() {
     `;
     list.appendChild(item);
   });
-  document.getElementById('start-tournament-btn').disabled = pendingPlayers.length < 2;
+  document.getElementById('start-tournament-btn').disabled = pendingPlayers.length < 2 || !canStartMatch().ok;
 }
 
 function addPlayer() {
@@ -1992,8 +1992,16 @@ function removePlayer(index) {
   renderPlayerList();
 }
 
+function canStartMatch() {
+  if (!audioBuffer) return { ok: false, reason: 'No song loaded. Please load an MP3 in Settings before starting.' };
+  if (!settings.markPosition || settings.markPosition <= 0) return { ok: false, reason: 'No mark position set. Please set a mark in Settings before starting.' };
+  return { ok: true };
+}
+
 function startTournament() {
   if (pendingPlayers.length < 2) return;
+  const check = canStartMatch();
+  if (!check.ok) { alert(check.reason); return; }
   // Fisher-Yates shuffle for unbiased randomisation
   const shuffled = [...pendingPlayers];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -2134,6 +2142,7 @@ function renderBracket() {
     document.getElementById('bracket-round-info').textContent = '🎉 Tournament complete!';
     document.getElementById('bracket-start-btn').textContent = '🏠 Home';
     document.getElementById('bracket-start-btn').onclick = () => showScreen('idle');
+    document.getElementById('bracket-start-btn').disabled = false;
     replayBtn.style.display = '';
   } else if (current) {
     const roundNames = getRoundNames(tournament.rounds.length);
@@ -2141,6 +2150,7 @@ function renderBracket() {
       `Current: ${roundNames[current.roundIdx]}`;
     document.getElementById('bracket-start-btn').textContent = '⚡ Start Match';
     document.getElementById('bracket-start-btn').onclick = startCurrentMatch;
+    document.getElementById('bracket-start-btn').disabled = !canStartMatch().ok;
     replayBtn.style.display = '';
   } else {
     replayBtn.style.display = 'none';
@@ -2352,6 +2362,8 @@ function showMatchReview(match, roundIdx, matchIdx) {
    ============================================================ */
 function startCurrentMatch() {
   if (!tournament) return;
+  const check = canStartMatch();
+  if (!check.ok) { alert(check.reason); return; }
 
   const current = findCurrentMatch(tournament);
   if (!current) {
