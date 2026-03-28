@@ -1010,7 +1010,6 @@ const KEY_P1 = 'a';
 const KEY_P2 = 'l';
 const COUNTDOWN_BEEP_FREQ = [523, 523, 523, 880]; // C5 beeps, higher on GO
 const RESULT_TIMEOUT_AFTER_MARK = 4000; // ms to wait after mark for hits
-const CLOSE_THRESHOLD_MS = 15; // ms - "perfect"
 
 /* ============================================================
    STATE
@@ -1179,6 +1178,10 @@ function stopPreview() {
     previewAudioEl.src = '';
     previewAudioEl = null;
   }
+  if (previewSource) {
+    try { previewSource.stop(); } catch (_) {}
+    previewSource = null;
+  }
   stopGameAudio();
 }
 
@@ -1284,14 +1287,15 @@ function previewAudio() {
   if (!audioBuffer) { alert('Load audio first.'); return; }
   stopPreview();
   const ctx = getAudioCtx();
-  const src = ctx.createBufferSource();
-  src.buffer = audioBuffer;
-  src.connect(ctx.destination);
+  previewSource = ctx.createBufferSource();
+  previewSource.buffer = audioBuffer;
+  previewSource.connect(ctx.destination);
   const markPos = parseFloat(document.getElementById('s-mark-position').value) || 0;
   const previewStart = Math.max(0, markPos - 3);
-  src.start(0, previewStart);
-  previewAudioEl = { _source: src, pause() { try { src.stop(); } catch(_){} }, src: '' };
+  previewSource.start(0, previewStart);
 }
+
+let previewSource = null; // AudioBufferSourceNode for settings preview
 
 /* ============================================================
    WAVEFORM EDITOR
@@ -1340,8 +1344,10 @@ function drawWaveform() {
   ctx.lineWidth = 1;
   for (let i = 0; i < W; i++) {
     let min = 1, max = -1;
-    for (let j = 0; j < step; j++) {
-      const val = data[i * step + j] || 0;
+    const start = i * step;
+    const end = Math.min(start + step, data.length);
+    for (let j = start; j < end; j++) {
+      const val = data[j];
       if (val < min) min = val;
       if (val > max) max = val;
     }
@@ -1444,8 +1450,12 @@ function removePlayer(index) {
 
 function startTournament() {
   if (pendingPlayers.length < 2) return;
-  // Shuffle players
-  const shuffled = [...pendingPlayers].sort(() => Math.random() - 0.5);
+  // Fisher-Yates shuffle for unbiased randomisation
+  const shuffled = [...pendingPlayers];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
   tournament = createBracket(shuffled);
   saveTournament(tournament);
   showScreen('bracket');
@@ -2062,8 +2072,10 @@ function drawResultWaveform() {
   ctx.lineWidth = 1;
   for (let i = 0; i < W; i++) {
     let min = 1, max = -1;
-    for (let j = 0; j < samplesPerPixel; j++) {
-      const val = data[startSample + i * samplesPerPixel + j] || 0;
+    const iStart = startSample + i * samplesPerPixel;
+    const iEnd = Math.min(iStart + samplesPerPixel, data.length);
+    for (let s = iStart; s < iEnd; s++) {
+      const val = data[s];
       if (val < min) min = val;
       if (val > max) max = val;
     }
@@ -2077,8 +2089,10 @@ function drawResultWaveform() {
   ctx.lineWidth = 1;
   for (let i = 0; i < W; i++) {
     let min = 1, max = -1;
-    for (let j = 0; j < samplesPerPixel; j++) {
-      const val = data[startSample + i * samplesPerPixel + j] || 0;
+    const iStart = startSample + i * samplesPerPixel;
+    const iEnd = Math.min(iStart + samplesPerPixel, data.length);
+    for (let s = iStart; s < iEnd; s++) {
+      const val = data[s];
       if (val < min) min = val;
       if (val > max) max = val;
     }
