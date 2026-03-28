@@ -476,7 +476,7 @@ input[type="range"]::-webkit-slider-thumb {
   overflow: hidden;
   transition: border-color var(--transition);
 }
-.bracket-match.current { border-color: var(--accent3); box-shadow: 0 0 20px rgba(255,204,0,0.3); cursor: pointer; }
+.bracket-match.current { border-color: var(--accent3); box-shadow: 0 0 20px rgba(255,204,0,0.3); }
 .bracket-match.completed { border-color: var(--surface3); opacity: 0.7; }
 
 .bracket-player {
@@ -2184,8 +2184,8 @@ function renderBracket() {
       const isCurrent = current && current.roundIdx === rIdx && current.matchIdx === mIdx;
       // A match is reviewable if it completed (has a winner), is not a bye, and has real players
       const isReviewable = !match.isBye && match.winner && match.p1 && match.p2;
-      // A first-round match is selectable (clickable to play) if it's playable but not the auto-selected current match
-      const isSelectable = rIdx === 0 && !match.winner && !match.isBye && match.p1 && match.p2 && !isCurrent;
+      // A first-round match is selectable (clickable to play) if it's playable (in round 0)
+      const isSelectable = rIdx === 0 && !match.winner && !match.isBye && match.p1 && match.p2;
       const matchEl = document.createElement('div');
       matchEl.className = 'bracket-match' +
         (isCurrent ? ' current' : (match.winner ? ' completed' : '')) +
@@ -2193,7 +2193,7 @@ function renderBracket() {
         (isSelectable ? ' selectable' : '');
       if (isReviewable) {
         matchEl.onclick = () => showMatchReview(match, rIdx, mIdx);
-      } else if (isSelectable || isCurrent) {
+      } else if (isSelectable) {
         matchEl.onclick = () => startSpecificMatch(rIdx, mIdx);
       }
 
@@ -2744,7 +2744,6 @@ function showResultScreen(winner, isTie = false, isReview = false) {
   const finalMatch = tournament ? tournament.rounds[tournament.rounds.length - 1][0] : null;
   const isFinalSeries = !isReview && finalMatch && finalMatch.finalGames && finalMatch.finalGames.length > 0;
   const seriesInProgress = isFinalSeries && !finalMatch.winner;
-  const seriesJustWon = isFinalSeries && finalMatch.winner && !tournamentWinner; // shouldn't happen normally, but guard
   const scoreP1 = finalMatch && finalMatch.finalScoreP1 ? finalMatch.finalScoreP1 : 0;
   const scoreP2 = finalMatch && finalMatch.finalScoreP2 ? finalMatch.finalScoreP2 : 0;
   const gameNum = finalMatch && finalMatch.finalGames ? finalMatch.finalGames.length : 0;
