@@ -2078,6 +2078,8 @@ function renderBracket() {
     col.appendChild(title);
 
     round.forEach((match, mIdx) => {
+      // Skip null-vs-null bye matches (padding byes that have no real players)
+      if (match.isBye && !match.p1 && !match.p2) return;
       const isCurrent = current && current.roundIdx === rIdx && current.matchIdx === mIdx;
       // A match is reviewable if it completed (has a winner), is not a bye, and has real players
       const isReviewable = !match.isBye && match.winner && match.p1 && match.p2;
