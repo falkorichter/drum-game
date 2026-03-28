@@ -884,9 +884,9 @@ input[type="range"]::-webkit-slider-thumb {
         <div class="waveform-zoom-label">🔍 Zoomed view — click to fine-tune mark</div>
         <div class="waveform-zoom-controls">
           <span class="waveform-zoom-label">Window:</span>
-          <button class="btn btn-secondary btn-sm" onclick="changeZoomWindow(-0.5)" title="Zoom in">−</button>
+          <button class="btn btn-secondary btn-sm" onclick="changeZoomWindow(-0.5)" title="Zoom in" aria-label="Zoom in (reduce window)">−</button>
           <span class="waveform-zoom-size" id="zoom-window-size">2.0s</span>
-          <button class="btn btn-secondary btn-sm" onclick="changeZoomWindow(0.5)" title="Zoom out">+</button>
+          <button class="btn btn-secondary btn-sm" onclick="changeZoomWindow(0.5)" title="Zoom out" aria-label="Zoom out (increase window)">+</button>
         </div>
       </div>
       <div class="waveform-zoom-container" id="waveform-zoom-wrap">
