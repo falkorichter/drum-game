@@ -624,7 +624,6 @@ input[type="range"]::-webkit-slider-thumb {
   height: 100%;
   background: linear-gradient(90deg, var(--accent1), var(--accent2));
   width: 0;
-  transition: width 0.1s linear;
 }
 
 /* Hit status in match */
@@ -2096,7 +2095,7 @@ function beginCountdown() {
       }, timeUntilMark + RESULT_TIMEOUT_AFTER_MARK);
 
       // Progress bar animation
-      startProgressBar(acStartTime, matchState.markContextTime);
+      startProgressBar(acStartTime);
     }
   };
 
@@ -2113,20 +2112,17 @@ function showCountdownGo() {
   el.innerHTML = `<div class="countdown-number countdown-go">GO!</div>`;
 }
 
-function startProgressBar(startAcTime, markAcTime) {
+function startProgressBar(startAcTime) {
   const el = document.getElementById('match-progress-bar');
-  const duration = markAcTime - startAcTime;
 
   matchState.progressInterval = setInterval(() => {
     const ctx = getAudioCtx();
     const elapsed = ctx.currentTime - startAcTime;
-    const pct = Math.min(100, (elapsed / duration) * 100);
+    if (elapsed < 0) { el.style.width = '0'; return; }
+    // Fill 0→100% once per second — gives a beat-pulse feel without revealing the mark time
+    const pct = (elapsed % 1.0) * 100;
     el.style.width = pct + '%';
-
-    if (pct >= 100) {
-      clearInterval(matchState.progressInterval);
-    }
-  }, 50);
+  }, 20);
 }
 
 function startGameAudio(offsetSeconds, acStartTime) {
