@@ -380,6 +380,54 @@ section('Every player appears exactly once (2–20 players)');
   }
 })();
 
+// ─── Player seed parsing ───
+section('parsePlayerSeed');
+(function() {
+  // Inline the parsePlayerSeed logic for testing (mirrors index.html)
+  function parseSeed(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const seen = new Set();
+    const duplicates = [];
+    const unique = [];
+    for (const name of lines) {
+      const key = name.toLowerCase();
+      if (seen.has(key)) {
+        if (!duplicates.includes(name)) duplicates.push(name);
+      } else {
+        seen.add(key);
+        unique.push(name);
+      }
+    }
+    return { names: unique, duplicates };
+  }
+
+  let s = parseSeed('Alice\nBob\nCharlie');
+  eq(s.names.length, 3, '3 unique names');
+  eq(s.duplicates.length, 0, 'no duplicates');
+
+  s = parseSeed('Alice\nBob\nalice\nCharlie');
+  eq(s.names.length, 3, 'case-insensitive dedup → 3 unique');
+  eq(s.duplicates.length, 1, '1 duplicate detected');
+  eq(s.duplicates[0], 'alice', 'duplicate is "alice"');
+
+  s = parseSeed('');
+  eq(s.names.length, 0, 'empty input → 0 names');
+  eq(s.duplicates.length, 0, 'empty input → 0 duplicates');
+
+  s = parseSeed('  Alice  \n\n  Bob  \n\n');
+  eq(s.names.length, 2, 'whitespace trimmed, blank lines skipped');
+  eq(s.names[0], 'Alice', 'first name trimmed correctly');
+  eq(s.names[1], 'Bob', 'second name trimmed correctly');
+
+  s = parseSeed('Foo\nBar\nFoo\nBaz\nBar');
+  eq(s.names.length, 3, 'multiple duplicates → 3 unique');
+  eq(s.duplicates.length, 2, '2 duplicate names detected');
+
+  s = parseSeed('OnlyOne');
+  eq(s.names.length, 1, 'single name works');
+  eq(s.duplicates.length, 0, 'single name → no duplicates');
+})();
+
 /* === Summary === */
 const sumEl = document.getElementById('summary');
 if (failed === 0) {

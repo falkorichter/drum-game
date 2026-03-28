@@ -867,6 +867,17 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .audio-status.ok { color: var(--success); background: rgba(0,255,136,0.1); }
 
+/* Player seed list validation */
+.seed-error {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(255,51,102,0.1);
+  color: var(--accent1);
+  margin-top: 6px;
+}
+textarea.form-control.seed-invalid { border-color: var(--accent1); }
+
 /* ========================================================
    Responsive / large screen tweaks
    ======================================================== */
@@ -1013,6 +1024,18 @@ input[type="range"]::-webkit-slider-thumb {
       <div class="flex-row mt-1">
         <button class="btn btn-secondary btn-sm" onclick="previewIdleMusic()">▶ Test idle music</button>
         <button class="btn btn-secondary btn-sm" onclick="stopPreview()">⏹ Stop</button>
+      </div>
+    </div>
+
+    <!-- Player seed list -->
+    <div class="card">
+      <h3>👥 Player Seed List</h3>
+      <p class="text-dim" style="margin-bottom:8px;font-size:0.85rem;">Enter player names, <strong>one per line</strong>. These will be pre-loaded into every new tournament. Duplicates are not allowed.</p>
+      <div class="form-group">
+        <label class="form-label">Players (one per line)</label>
+        <textarea id="s-player-seed" class="form-control" rows="8" placeholder="Alice&#10;Bob&#10;Charlie" oninput="validatePlayerSeed()"></textarea>
+        <div id="player-seed-error" class="seed-error" style="display:none;"></div>
+        <div id="player-seed-count" class="text-dim" style="font-size:0.8rem;margin-top:4px;"></div>
       </div>
     </div>
 
@@ -1210,6 +1233,7 @@ function loadSettings() {
     startMin: 5.0,
     startMax: 15.0,
     idleMusicUrl: '',
+    playerSeedList: '',
   };
   try {
     const saved = localStorage.getItem(LS_SETTINGS);
@@ -1384,6 +1408,8 @@ function populateSettingsForm() {
   document.getElementById('s-start-min').value = settings.startMin || 5;
   document.getElementById('s-start-max').value = settings.startMax || 15;
   document.getElementById('s-idle-music-url').value = settings.idleMusicUrl || '';
+  document.getElementById('s-player-seed').value = settings.playerSeedList || '';
+  validatePlayerSeed();
   updateRangeDisplay('s-start-min', 's-start-min-val');
   updateRangeDisplay('s-start-max', 's-start-max-val');
   updateMarkPositionDisplay();
@@ -1836,6 +1862,13 @@ function changeZoomWindow(delta) {
 }
 
 function saveSettingsFromForm() {
+  // Validate player seed list for duplicates before saving
+  const seedResult = parsePlayerSeed();
+  if (seedResult.duplicates.length > 0) {
+    alert('Fix duplicate player names before saving:\n' + seedResult.duplicates.join(', '));
+    return;
+  }
+
   const newSettings = {
     tournamentName: document.getElementById('s-tournament-name').value.trim() || 'Beat Challenge',
     audioUrl: document.getElementById('s-audio-url').value.trim(),
@@ -1843,6 +1876,7 @@ function saveSettingsFromForm() {
     startMin: parseFloat(document.getElementById('s-start-min').value) || 5,
     startMax: parseFloat(document.getElementById('s-start-max').value) || 15,
     idleMusicUrl: document.getElementById('s-idle-music-url').value.trim(),
+    playerSeedList: document.getElementById('s-player-seed').value,
   };
 
   // Validate
@@ -1857,12 +1891,52 @@ function saveSettingsFromForm() {
 }
 
 /* ============================================================
+   PLAYER SEED LIST
+   ============================================================ */
+function parsePlayerSeed() {
+  const textarea = document.getElementById('s-player-seed');
+  const raw = textarea ? textarea.value : (settings.playerSeedList || '');
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const seen = new Set();
+  const duplicates = [];
+  const unique = [];
+  for (const name of lines) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      if (!duplicates.includes(name)) duplicates.push(name);
+    } else {
+      seen.add(key);
+      unique.push(name);
+    }
+  }
+  return { names: unique, duplicates };
+}
+
+function validatePlayerSeed() {
+  const result = parsePlayerSeed();
+  const errEl = document.getElementById('player-seed-error');
+  const countEl = document.getElementById('player-seed-count');
+  const textarea = document.getElementById('s-player-seed');
+  if (result.duplicates.length > 0) {
+    errEl.textContent = '⚠ Duplicate names: ' + result.duplicates.join(', ');
+    errEl.style.display = '';
+    textarea.classList.add('seed-invalid');
+  } else {
+    errEl.style.display = 'none';
+    textarea.classList.remove('seed-invalid');
+  }
+  countEl.textContent = result.names.length ? `${result.names.length} player${result.names.length === 1 ? '' : 's'}` : '';
+}
+
+/* ============================================================
    TOURNAMENT SETUP
    ============================================================ */
 let pendingPlayers = [];
 
 function renderTournamentSetup() {
-  pendingPlayers = [];
+  // Seed pending players from settings seed list
+  const seed = parsePlayerSeed();
+  pendingPlayers = [...seed.names];
   renderPlayerList();
 
   const existing = loadTournament();
