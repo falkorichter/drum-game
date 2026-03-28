@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🥁 Beat Challenge</title>
+<style>
+/* ========================================================
+   Reset & CSS Variables
+   ======================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #07071a;
+  --surface: #0f0f2e;
+  --surface2: #1a1a40;
+  --surface3: #252560;
+  --accent1: #ff3366;
+  --accent2: #00d4ff;
+  --accent3: #ffcc00;
+  --p1: #ff3366;
+  --p2: #00d4ff;
+  --text: #ffffff;
+  --text-dim: #8899bb;
+  --success: #00ff88;
+  --radius: 12px;
+  --transition: 0.3s ease;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ========================================================
+   Screen System
+   ======================================================== */
+.screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.screen.active { display: flex; }
+
+/* ========================================================
+   Scrollable inner container (settings, setup)
+   ======================================================== */
+.scroll-container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+.scroll-container::-webkit-scrollbar { width: 6px; }
+.scroll-container::-webkit-scrollbar-track { background: var(--surface); }
+.scroll-container::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+/* ========================================================
+   Particles background canvas
+   ======================================================== */
+#particles-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ========================================================
+   Typography
+   ======================================================== */
+h1 { font-size: clamp(2rem, 8vw, 6rem); font-weight: 900; letter-spacing: -2px; }
+h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 700; margin-bottom: 20px; }
+h3 { font-size: 1.1rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+p  { color: var(--text-dim); line-height: 1.5; }
+
+/* ========================================================
+   Buttons
+   ======================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: relative;
+  z-index: 1;
+}
+.btn:active { transform: scale(0.96) !important; }
+.btn:disabled { opacity: 0.4; pointer-events: none; }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent1), #cc0044);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(255,51,102,0.4);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255,51,102,0.6); }
+
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 2px solid var(--surface3);
+}
+.btn-secondary:hover { transform: translateY(-2px); background: var(--surface3); }
+
+.btn-accent2 {
+  background: linear-gradient(135deg, var(--accent2), #0088aa);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0,212,255,0.3);
+}
+.btn-accent2:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,212,255,0.5); }
+
+.btn-accent3 {
+  background: linear-gradient(135deg, var(--accent3), #cc9900);
+  color: #000;
+  box-shadow: 0 4px 20px rgba(255,204,0,0.3);
+}
+.btn-accent3:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255,204,0,0.5); }
+
+.btn-success {
+  background: linear-gradient(135deg, var(--success), #009944);
+  color: #000;
+  box-shadow: 0 4px 20px rgba(0,255,136,0.3);
+}
+.btn-success:hover { transform: translateY(-2px); }
+
+.btn-danger {
+  background: linear-gradient(135deg, #ff4444, #aa0000);
+  color: #fff;
+}
+.btn-danger:hover { transform: translateY(-2px); }
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+.btn-lg {
+  padding: 18px 48px;
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+}
+.btn-xl {
+  padding: 24px 64px;
+  font-size: 1.8rem;
+}
+
+/* ========================================================
+   Form controls
+   ======================================================== */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.form-control {
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--surface3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+.form-control:focus { outline: none; border-color: var(--accent2); }
+.form-control::placeholder { color: var(--text-dim); }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--surface);
+  border-radius: 4px;
+  height: 6px;
+  cursor: pointer;
+  padding: 0;
+  border: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent2);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0,212,255,0.5);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.range-display {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent2);
+  min-width: 50px;
+  text-align: right;
+}
+
+/* ========================================================
+   Card
+   ======================================================== */
+.card {
+  background: var(--surface);
+  border: 2px solid var(--surface3);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: 100%;
+  max-width: 800px;
+  margin-bottom: 16px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+/* ========================================================
+   ===== IDLE SCREEN =====
+   ======================================================== */
+#screen-idle {
+  background: radial-gradient(ellipse at center, #0d0d2e 0%, #07071a 70%);
+}
+
+.idle-title-wrap {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.game-title {
+  background: linear-gradient(135deg, var(--accent1), var(--accent2), var(--accent3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: titlePulse 2s ease-in-out infinite alternate;
+  line-height: 1;
+}
+@keyframes titlePulse {
+  from { filter: brightness(0.9) drop-shadow(0 0 20px rgba(255,51,102,0.3)); }
+  to   { filter: brightness(1.1) drop-shadow(0 0 40px rgba(0,212,255,0.5)); }
+}
+
+.game-subtitle {
+  font-size: clamp(0.9rem, 2vw, 1.3rem);
+  color: var(--text-dim);
+  margin-top: 8px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.idle-buttons {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* ========================================================
+   ===== SETTINGS SCREEN =====
+   ======================================================== */
+#screen-settings {
+  align-items: stretch;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--surface3);
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+/* Waveform editor */
+.waveform-container {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: crosshair;
+  border: 2px solid var(--surface3);
+}
+#waveform-canvas {
+  display: block;
+  width: 100%;
+  height: 140px;
+}
+.waveform-placeholder {
+  width: 100%;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+.waveform-info {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* ========================================================
+   ===== TOURNAMENT SETUP SCREEN =====
+   ======================================================== */
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.player-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  transition: background var(--transition);
+}
+.player-item:hover { background: var(--surface3); }
+.player-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent2);
+  color: #000;
+  font-weight: 900;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.player-name-display {
+  flex: 1;
+  font-weight: 600;
+}
+.add-player-row {
+  display: flex;
+  gap: 10px;
+}
+
+/* ========================================================
+   ===== BRACKET SCREEN =====
+   ======================================================== */
+#screen-bracket {
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.bracket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--surface3);
+  flex-shrink: 0;
+}
+
+.bracket-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 20px;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 180px;
+}
+.bracket-round-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.bracket-match {
+  background: var(--surface);
+  border: 2px solid var(--surface3);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+.bracket-match.current { border-color: var(--accent3); box-shadow: 0 0 20px rgba(255,204,0,0.3); }
+.bracket-match.completed { border-color: var(--surface3); opacity: 0.7; }
+
+.bracket-player {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--surface3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bracket-player:last-child { border-bottom: none; }
+.bracket-player.winner { color: var(--accent3); }
+.bracket-player.bye { color: var(--text-dim); font-style: italic; }
+.bracket-player-badge { font-size: 0.75rem; }
+
+.bracket-footer {
+  padding: 16px 24px;
+  background: var(--surface);
+  border-top: 2px solid var(--surface3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* ========================================================
+   ===== MATCH SCREEN =====
+   ======================================================== */
+#screen-match {
+  flex-direction: row;
+  position: relative;
+  overflow: hidden;
+}
+
+.match-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 30px;
+  transition: background var(--transition);
+  position: relative;
+}
+.match-half-p1 { background: rgba(255, 51, 102, 0.05); border-right: 1px solid var(--surface3); }
+.match-half-p2 { background: rgba(0, 212, 255, 0.05); }
+.match-half.hit { animation: halfFlash 0.3s ease; }
+@keyframes halfFlash {
+  0%   { filter: brightness(3); }
+  100% { filter: brightness(1); }
+}
+
+.match-key-hint {
+  font-size: clamp(0.8rem, 2vw, 1rem);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+.match-key-badge {
+  width: clamp(70px, 12vw, 120px);
+  height: clamp(70px, 12vw, 120px);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(2rem, 6vw, 5rem);
+  font-weight: 900;
+  border: 4px solid;
+  transition: all 0.15s ease;
+}
+.match-key-badge-p1 { border-color: var(--p1); color: var(--p1); box-shadow: 0 0 30px rgba(255,51,102,0.2); }
+.match-key-badge-p2 { border-color: var(--p2); color: var(--p2); box-shadow: 0 0 30px rgba(0,212,255,0.2); }
+.match-key-badge.pressed {
+  background: rgba(255,255,255,0.15);
+  transform: scale(0.9);
+}
+.match-key-badge-p1.pressed { box-shadow: 0 0 60px rgba(255,51,102,0.8); }
+.match-key-badge-p2.pressed { box-shadow: 0 0 60px rgba(0,212,255,0.8); }
+
+.match-player-name {
+  font-size: clamp(1.2rem, 3vw, 2.5rem);
+  font-weight: 800;
+  text-align: center;
+}
+.match-player-name-p1 { color: var(--p1); }
+.match-player-name-p2 { color: var(--p2); }
+
+/* Center overlay (countdown, vs) */
+.match-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.match-vs {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-weight: 900;
+  color: var(--text-dim);
+  letter-spacing: 4px;
+}
+
+.countdown-number {
+  font-size: clamp(4rem, 18vw, 14rem);
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  animation: countPop 0.4s ease-out;
+}
+@keyframes countPop {
+  0%   { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.countdown-go {
+  background: linear-gradient(135deg, var(--accent3), #ff8800);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.countdown-3 { color: #ff6666; }
+.countdown-2 { color: #ffaa00; }
+.countdown-1 { color: var(--success); }
+
+/* Progress bar */
+.match-progress-wrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: var(--surface2);
+  z-index: 5;
+}
+.match-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent1), var(--accent2));
+  width: 0;
+  transition: width 0.1s linear;
+}
+
+/* Hit status in match */
+.match-hit-status {
+  font-size: clamp(0.8rem, 2vw, 1.1rem);
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  transition: all 0.2s ease;
+}
+.match-hit-status.hit-done { background: var(--success); color: #000; }
+
+/* ========================================================
+   ===== RESULT SCREEN =====
+   ======================================================== */
+#screen-result {
+  background: radial-gradient(ellipse at center, #0d0d2e 0%, #07071a 70%);
+}
+
+.result-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 900px;
+  padding: 24px;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.result-winner-banner {
+  text-align: center;
+  padding: 20px 40px;
+  border-radius: var(--radius);
+  animation: winnerBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes winnerBounce {
+  0%   { transform: scale(0.5); opacity: 0; }
+  80%  { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.result-winner-label {
+  font-size: clamp(0.8rem, 2vw, 1rem);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.result-winner-name {
+  font-size: clamp(2rem, 6vw, 5rem);
+  font-weight: 900;
+  line-height: 1;
+}
+.result-winner-sub {
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.result-scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+.result-score-card {
+  padding: 20px;
+  border-radius: var(--radius);
+  text-align: center;
+  border: 3px solid transparent;
+}
+.result-score-card.winner-card { border-color: var(--accent3); box-shadow: 0 0 30px rgba(255,204,0,0.2); }
+.result-score-player {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.result-score-dev {
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  font-weight: 900;
+  font-family: monospace;
+}
+.result-score-dev-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.result-waveform-wrap {
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid var(--surface3);
+}
+#result-waveform-canvas { display: block; width: 100%; height: 100px; }
+
+.result-buttons {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Tournament champion screen */
+.champion-glow {
+  animation: championGlow 1.5s ease-in-out infinite alternate;
+}
+@keyframes championGlow {
+  from { text-shadow: 0 0 20px var(--accent3), 0 0 40px var(--accent3); }
+  to   { text-shadow: 0 0 40px var(--accent1), 0 0 80px var(--accent1), 0 0 120px var(--accent2); }
+}
+
+/* ========================================================
+   Confetti canvas
+   ======================================================== */
+#confetti-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ========================================================
+   Misc utility
+   ======================================================== */
+.flex-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.flex-col { display: flex; flex-direction: column; gap: 8px; }
+.text-center { text-align: center; }
+.text-accent1 { color: var(--accent1); }
+.text-accent2 { color: var(--accent2); }
+.text-accent3 { color: var(--accent3); }
+.text-success { color: var(--success); }
+.text-dim { color: var(--text-dim); }
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.fw-bold { font-weight: 700; }
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--surface3);
+  color: var(--text-dim);
+}
+
+.back-btn { position: relative; z-index: 1; }
+
+/* audio file status */
+.audio-status {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text-dim);
+}
+.audio-status.ok { color: var(--success); background: rgba(0,255,136,0.1); }
+
+/* ========================================================
+   Responsive / large screen tweaks
+   ======================================================== */
+@media (min-width: 1200px) {
+  .card { max-width: 900px; }
+}
+@media (max-width: 600px) {
+  .form-row { grid-template-columns: 1fr; }
+  .result-scores { grid-template-columns: 1fr; }
+  .idle-buttons { flex-direction: column; align-items: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- Particle / ambient canvas -->
+<canvas id="particles-canvas"></canvas>
+<!-- Confetti canvas -->
+<canvas id="confetti-canvas"></canvas>
+
+<!-- ============================================================
+     SCREEN: IDLE
+     ============================================================ -->
+<div id="screen-idle" class="screen">
+  <div class="idle-title-wrap">
+    <h1 class="game-title" id="idle-game-title">🥁 BEAT CHALLENGE</h1>
+    <p class="game-subtitle" id="idle-subtitle">Hit the beat · Win the game</p>
+  </div>
+  <div class="idle-buttons">
+    <button class="btn btn-primary btn-xl" onclick="showScreen('tournament-setup')">🏆 Tournament</button>
+    <button class="btn btn-secondary btn-lg" onclick="showScreen('settings')">⚙️ Settings</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: SETTINGS
+     ============================================================ -->
+<div id="screen-settings" class="screen" style="align-items:stretch;">
+  <div class="settings-header">
+    <button class="btn btn-secondary btn-sm back-btn" onclick="showScreen('idle')">← Back</button>
+    <h2 style="margin:0;">⚙️ Settings</h2>
+    <button class="btn btn-primary btn-sm" onclick="saveSettingsFromForm()">💾 Save</button>
+  </div>
+  <div class="scroll-container">
+
+    <!-- Tournament name -->
+    <div class="card">
+      <h3>🎮 Game</h3>
+      <div class="form-group">
+        <label class="form-label">Tournament name</label>
+        <input type="text" id="s-tournament-name" class="form-control" placeholder="Beat Challenge">
+      </div>
+    </div>
+
+    <!-- Audio file -->
+    <div class="card">
+      <h3>🎵 Game Audio</h3>
+      <div class="form-group">
+        <label class="form-label">Audio file URL</label>
+        <input type="text" id="s-audio-url" class="form-control" placeholder="http://... or leave empty to upload">
+      </div>
+      <div class="form-group">
+        <label class="form-label">— or upload file —</label>
+        <input type="file" id="s-audio-file" class="form-control" accept="audio/*" onchange="handleAudioFileUpload(event)">
+      </div>
+      <div id="audio-status" class="audio-status">No audio loaded</div>
+      <div class="flex-row mt-1">
+        <button class="btn btn-accent2 btn-sm" onclick="loadAudioForEditor()">🔄 Load / Reload audio</button>
+        <button class="btn btn-secondary btn-sm" onclick="previewAudio()">▶ Preview</button>
+        <button class="btn btn-secondary btn-sm" onclick="stopPreview()">⏹ Stop</button>
+      </div>
+    </div>
+
+    <!-- Waveform / mark editor -->
+    <div class="card">
+      <h3>🎯 Mark Position Editor</h3>
+      <p class="text-dim" style="margin-bottom:12px;font-size:0.85rem;">Load audio above, then click on the waveform to set the mark. You can also type the exact time below.</p>
+      <div class="waveform-container" id="waveform-wrap">
+        <div class="waveform-placeholder" id="waveform-placeholder">Load audio to see waveform</div>
+        <canvas id="waveform-canvas" style="display:none;"></canvas>
+      </div>
+      <div class="waveform-info" id="waveform-info"></div>
+      <div class="form-group mt-2">
+        <label class="form-label">Mark position (seconds)</label>
+        <div class="flex-row">
+          <input type="number" id="s-mark-position" class="form-control" step="0.001" min="0" value="30" oninput="onMarkPositionInput()">
+          <span id="s-mark-position-display" class="range-display text-accent3"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start range -->
+    <div class="card">
+      <h3>🎲 Randomisation</h3>
+      <p class="text-dim" style="margin-bottom:12px;font-size:0.85rem;">The song starts at a random point between <em>Min</em> and <em>Max</em> seconds <strong>before</strong> the mark, so players can't predict exactly when the beat hits.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Min seconds before mark</label>
+          <div class="flex-row">
+            <input type="range" id="s-start-min" class="form-control" min="1" max="60" step="0.5" value="5" oninput="updateRangeDisplay('s-start-min','s-start-min-val')">
+            <span id="s-start-min-val" class="range-display">5s</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max seconds before mark</label>
+          <div class="flex-row">
+            <input type="range" id="s-start-max" class="form-control" min="1" max="60" step="0.5" value="15" oninput="updateRangeDisplay('s-start-max','s-start-max-val')">
+            <span id="s-start-max-val" class="range-display">15s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Idle music -->
+    <div class="card">
+      <h3>🎶 Idle Music</h3>
+      <div class="form-group">
+        <label class="form-label">Idle music URL</label>
+        <input type="text" id="s-idle-music-url" class="form-control" placeholder="http://... MP3 URL played on the idle screen">
+      </div>
+      <div class="flex-row">
+        <button class="btn btn-secondary btn-sm" onclick="previewIdleMusic()">▶ Test idle music</button>
+        <button class="btn btn-secondary btn-sm" onclick="stopIdleMusic()">⏹ Stop</button>
+      </div>
+    </div>
+
+    <div style="padding-bottom:20px; display:flex; gap:12px; justify-content:center;">
+      <button class="btn btn-primary btn-lg" onclick="saveSettingsFromForm()">💾 Save Settings</button>
+      <button class="btn btn-secondary btn-lg" onclick="showScreen('idle')">Cancel</button>
+    </div>
+
+  </div><!-- /scroll-container -->
+</div>
+
+<!-- ============================================================
+     SCREEN: TOURNAMENT SETUP
+     ============================================================ -->
+<div id="screen-tournament-setup" class="screen" style="align-items:stretch;">
+  <div class="settings-header">
+    <button class="btn btn-secondary btn-sm back-btn" onclick="showScreen('idle')">← Back</button>
+    <h2 style="margin:0;">🏆 Tournament Setup</h2>
+    <div style="width:80px;"></div>
+  </div>
+  <div class="scroll-container">
+
+    <div class="card">
+      <h3>👥 Players</h3>
+      <div id="player-list" class="player-list"></div>
+      <div class="add-player-row">
+        <input type="text" id="new-player-name" class="form-control" placeholder="Player name" maxlength="30"
+               onkeydown="if(event.key==='Enter') addPlayer()">
+        <button class="btn btn-accent2" onclick="addPlayer()">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card" id="load-tournament-card" style="display:none;">
+      <h3>💾 Saved Tournament</h3>
+      <p id="saved-tournament-info" class="text-dim" style="margin-bottom:12px;font-size:0.9rem;"></p>
+      <div class="flex-row">
+        <button class="btn btn-accent3" onclick="resumeTournament()">▶ Resume</button>
+        <button class="btn btn-danger btn-sm" onclick="clearTournament()">🗑 Delete</button>
+      </div>
+    </div>
+
+    <div style="padding-bottom:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-primary btn-lg" id="start-tournament-btn" onclick="startTournament()" disabled>🚀 Start Tournament</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: BRACKET
+     ============================================================ -->
+<div id="screen-bracket" class="screen">
+  <div class="bracket-header">
+    <div>
+      <div id="bracket-title" style="font-size:1.2rem;font-weight:800;">🏆 Tournament</div>
+      <div id="bracket-round-info" class="text-dim" style="font-size:0.85rem;"></div>
+    </div>
+    <div class="flex-row">
+      <button class="btn btn-secondary btn-sm" onclick="showScreen('tournament-setup')">← Setup</button>
+    </div>
+  </div>
+  <div class="bracket-body" id="bracket-body"></div>
+  <div class="bracket-footer">
+    <button class="btn btn-primary btn-lg" id="bracket-start-btn" onclick="startCurrentMatch()">⚡ Start Match</button>
+    <button class="btn btn-secondary btn-sm" onclick="showScreen('idle')">🏠 Home</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: MATCH
+     ============================================================ -->
+<div id="screen-match" class="screen">
+  <!-- Player 1 half -->
+  <div class="match-half match-half-p1" id="match-half-p1">
+    <div class="match-key-hint">Player 1</div>
+    <div class="match-player-name match-player-name-p1" id="match-p1-name">Player 1</div>
+    <div class="match-key-badge match-key-badge-p1" id="match-key-p1">A</div>
+    <div class="match-hit-status" id="match-hit-p1">Waiting…</div>
+  </div>
+
+  <!-- Center overlay -->
+  <div class="match-center" id="match-center">
+    <div class="match-vs" id="match-vs-text">VS</div>
+    <div id="countdown-display"></div>
+    <div id="match-status-text" style="font-size:1rem;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;"></div>
+  </div>
+
+  <!-- Player 2 half -->
+  <div class="match-half match-half-p2" id="match-half-p2">
+    <div class="match-key-hint">Player 2</div>
+    <div class="match-player-name match-player-name-p2" id="match-p2-name">Player 2</div>
+    <div class="match-key-badge match-key-badge-p2" id="match-key-p2">L</div>
+    <div class="match-hit-status" id="match-hit-p2">Waiting…</div>
+  </div>
+
+  <!-- Bottom progress bar -->
+  <div class="match-progress-wrap">
+    <div class="match-progress-bar" id="match-progress-bar"></div>
+  </div>
+
+  <!-- Abort button -->
+  <button class="btn btn-secondary btn-sm" style="position:absolute;top:12px;right:12px;z-index:20;"
+          onclick="abortMatch()">✕ Abort</button>
+</div>
+
+<!-- ============================================================
+     SCREEN: RESULT
+     ============================================================ -->
+<div id="screen-result" class="screen">
+  <div class="result-content">
+    <div id="result-winner-banner" class="result-winner-banner"></div>
+    <div class="result-scores" id="result-scores"></div>
+
+    <div class="result-waveform-wrap" id="result-waveform-wrap" style="display:none;">
+      <canvas id="result-waveform-canvas"></canvas>
+    </div>
+
+    <div class="result-buttons">
+      <button class="btn btn-primary btn-lg" id="result-continue-btn" onclick="onResultContinue()">Continue →</button>
+      <button class="btn btn-secondary" onclick="showScreen('bracket')">📊 Bracket</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+'use strict';
+
+/* ============================================================
+   CONSTANTS & DEFAULTS
+   ============================================================ */
+const KEY_P1 = 'a';
+const KEY_P2 = 'l';
+const COUNTDOWN_BEEP_FREQ = [523, 523, 523, 880]; // C5 beeps, higher on GO
+const RESULT_TIMEOUT_AFTER_MARK = 4000; // ms to wait after mark for hits
+const CLOSE_THRESHOLD_MS = 15; // ms - "perfect"
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let settings = loadSettings();
+let tournament = loadTournament();
+
+let audioCtx = null;
+let audioBuffer = null;       // decoded game audio
+let audioSource = null;       // currently playing source
+let idleAudioEl = null;       // <audio> for idle music
+let previewAudioEl = null;    // <audio> for settings preview
+
+// Waveform editor state
+let waveformAudioBuffer = null; // same as audioBuffer but set when decoded
+
+// Match state
+let matchState = {
+  phase: 'idle', // idle | countdown | playing | ended
+  p1Name: '',
+  p2Name: '',
+  matchIndex: -1,
+  songOffset: 0,      // seconds into the song where we start
+  markPosition: 30,   // absolute seconds in song
+  markContextTime: 0, // audioCtx.currentTime when mark should be hit
+  p1HitTime: null,    // audioCtx.currentTime when p1 hit
+  p2HitTime: null,    // audioCtx.currentTime when p2 hit
+  p1Dev: null,        // deviation in seconds
+  p2Dev: null,
+  resultTimeout: null,
+  progressInterval: null,
+};
+
+/* ============================================================
+   LOCAL STORAGE
+   ============================================================ */
+const LS_SETTINGS = 'drumgame_settings';
+const LS_TOURNAMENT = 'drumgame_tournament';
+const LS_AUDIO = 'drumgame_audio';
+
+function loadSettings() {
+  const defaults = {
+    tournamentName: 'Beat Challenge',
+    audioUrl: '',
+    markPosition: 30.0,
+    startMin: 5.0,
+    startMax: 15.0,
+    idleMusicUrl: '',
+  };
+  try {
+    const saved = localStorage.getItem(LS_SETTINGS);
+    return saved ? { ...defaults, ...JSON.parse(saved) } : { ...defaults };
+  } catch (_) { return defaults; }
+}
+
+function saveSettings(s) {
+  localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+}
+
+function loadTournament() {
+  try {
+    const saved = localStorage.getItem(LS_TOURNAMENT);
+    return saved ? JSON.parse(saved) : null;
+  } catch (_) { return null; }
+}
+
+function saveTournament(t) {
+  localStorage.setItem(LS_TOURNAMENT, JSON.stringify(t));
+}
+
+function clearTournamentStorage() {
+  localStorage.removeItem(LS_TOURNAMENT);
+}
+
+/* ============================================================
+   AUDIO CONTEXT
+   ============================================================ */
+function getAudioCtx() {
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+/* ============================================================
+   SCREEN NAVIGATION
+   ============================================================ */
+const SCREENS = ['idle','settings','tournament-setup','bracket','match','result'];
+
+function showScreen(name) {
+  SCREENS.forEach(id => {
+    const el = document.getElementById(`screen-${id}`);
+    if (el) el.classList.toggle('active', id === name);
+  });
+
+  // Stop any playing audio when leaving match
+  if (name !== 'match') {
+    stopGameAudio();
+    clearMatchTimers();
+    matchState.phase = 'idle';
+  }
+
+  // Idle music
+  if (name === 'idle') {
+    startIdleMusic();
+    refreshIdleTitle();
+  } else {
+    stopIdleMusic();
+  }
+
+  // Refresh specific screens
+  if (name === 'settings') {
+    populateSettingsForm();
+  }
+  if (name === 'tournament-setup') {
+    renderTournamentSetup();
+  }
+  if (name === 'bracket') {
+    renderBracket();
+  }
+}
+
+/* ============================================================
+   IDLE SCREEN
+   ============================================================ */
+function refreshIdleTitle() {
+  document.getElementById('idle-game-title').textContent =
+    '🥁 ' + (settings.tournamentName || 'BEAT CHALLENGE').toUpperCase();
+}
+
+/* ============================================================
+   IDLE MUSIC
+   ============================================================ */
+function startIdleMusic() {
+  if (!settings.idleMusicUrl) return;
+  stopIdleMusic();
+  idleAudioEl = new Audio(settings.idleMusicUrl);
+  idleAudioEl.loop = true;
+  idleAudioEl.volume = 0.4;
+  idleAudioEl.play().catch(() => {});
+}
+
+function stopIdleMusic() {
+  if (idleAudioEl) {
+    idleAudioEl.pause();
+    idleAudioEl.src = '';
+    idleAudioEl = null;
+  }
+}
+
+function previewIdleMusic() {
+  stopPreview();
+  const url = document.getElementById('s-idle-music-url').value.trim();
+  if (!url) return alert('Enter an idle music URL first.');
+  previewAudioEl = new Audio(url);
+  previewAudioEl.volume = 0.5;
+  previewAudioEl.play().catch(e => alert('Could not play: ' + e.message));
+}
+
+function stopPreview() {
+  if (previewAudioEl) {
+    previewAudioEl.pause();
+    previewAudioEl.src = '';
+    previewAudioEl = null;
+  }
+  stopGameAudio();
+}
+
+/* ============================================================
+   SETTINGS SCREEN
+   ============================================================ */
+function populateSettingsForm() {
+  document.getElementById('s-tournament-name').value = settings.tournamentName || '';
+  document.getElementById('s-audio-url').value = settings.audioUrl || '';
+  document.getElementById('s-mark-position').value = settings.markPosition || 30;
+  document.getElementById('s-start-min').value = settings.startMin || 5;
+  document.getElementById('s-start-max').value = settings.startMax || 15;
+  document.getElementById('s-idle-music-url').value = settings.idleMusicUrl || '';
+  updateRangeDisplay('s-start-min', 's-start-min-val');
+  updateRangeDisplay('s-start-max', 's-start-max-val');
+  updateMarkPositionDisplay();
+
+  // If we already have a buffer, show waveform
+  if (audioBuffer || waveformAudioBuffer) {
+    showWaveform();
+  }
+
+  // Update audio status
+  updateAudioStatus();
+}
+
+function updateRangeDisplay(inputId, displayId) {
+  const val = parseFloat(document.getElementById(inputId).value);
+  document.getElementById(displayId).textContent = val.toFixed(1) + 's';
+}
+
+function updateMarkPositionDisplay() {
+  const val = parseFloat(document.getElementById('s-mark-position').value) || 0;
+  document.getElementById('s-mark-position-display').textContent = formatTime(val);
+  // Update waveform marker if visible
+  if (waveformAudioBuffer) drawWaveform();
+}
+
+function onMarkPositionInput() {
+  updateMarkPositionDisplay();
+  if (waveformAudioBuffer) drawWaveform();
+}
+
+function updateAudioStatus() {
+  const el = document.getElementById('audio-status');
+  if (audioBuffer || waveformAudioBuffer) {
+    const buf = audioBuffer || waveformAudioBuffer;
+    el.textContent = `✓ Audio loaded — ${buf.duration.toFixed(1)}s, ${buf.sampleRate} Hz`;
+    el.className = 'audio-status ok';
+  } else if (settings.audioUrl) {
+    el.textContent = `URL set: ${settings.audioUrl} — click "Load / Reload"`;
+    el.className = 'audio-status';
+  } else {
+    el.textContent = 'No audio loaded';
+    el.className = 'audio-status';
+  }
+}
+
+let pendingAudioFile = null; // File object from upload
+
+function handleAudioFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  pendingAudioFile = file;
+  // Auto-load
+  loadAudioForEditor();
+}
+
+async function loadAudioForEditor() {
+  const ctx = getAudioCtx();
+  const statusEl = document.getElementById('audio-status');
+  statusEl.textContent = '⌛ Loading…';
+  statusEl.className = 'audio-status';
+
+  try {
+    let arrayBuffer;
+    if (pendingAudioFile) {
+      arrayBuffer = await pendingAudioFile.arrayBuffer();
+    } else {
+      const url = document.getElementById('s-audio-url').value.trim();
+      if (!url) {
+        statusEl.textContent = 'Enter a URL or upload a file first.';
+        return;
+      }
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      arrayBuffer = await resp.arrayBuffer();
+    }
+
+    audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    waveformAudioBuffer = audioBuffer;
+
+    // Show waveform
+    showWaveform();
+    updateAudioStatus();
+  } catch (err) {
+    statusEl.textContent = '✗ Failed to load: ' + err.message;
+    statusEl.className = 'audio-status';
+  }
+}
+
+function previewAudio() {
+  if (!audioBuffer) { alert('Load audio first.'); return; }
+  stopPreview();
+  const ctx = getAudioCtx();
+  const src = ctx.createBufferSource();
+  src.buffer = audioBuffer;
+  src.connect(ctx.destination);
+  const markPos = parseFloat(document.getElementById('s-mark-position').value) || 0;
+  const previewStart = Math.max(0, markPos - 3);
+  src.start(0, previewStart);
+  previewAudioEl = { _source: src, pause() { try { src.stop(); } catch(_){} }, src: '' };
+}
+
+/* ============================================================
+   WAVEFORM EDITOR
+   ============================================================ */
+function showWaveform() {
+  document.getElementById('waveform-placeholder').style.display = 'none';
+  const canvas = document.getElementById('waveform-canvas');
+  canvas.style.display = 'block';
+  drawWaveform();
+
+  // Click handler
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const ratio = x / rect.width;
+    const time = ratio * waveformAudioBuffer.duration;
+    document.getElementById('s-mark-position').value = time.toFixed(3);
+    updateMarkPositionDisplay();
+    drawWaveform();
+  };
+
+  document.getElementById('waveform-info').textContent =
+    `Duration: ${formatTime(waveformAudioBuffer.duration)} · Click to set mark position`;
+}
+
+function drawWaveform() {
+  const canvas = document.getElementById('waveform-canvas');
+  const wrap = document.getElementById('waveform-wrap');
+  canvas.width = wrap.clientWidth || 760;
+  canvas.height = 140;
+  const ctx = canvas.getContext('2d');
+  const buf = waveformAudioBuffer;
+  if (!buf) return;
+
+  const W = canvas.width, H = canvas.height;
+  const data = buf.getChannelData(0);
+  const step = Math.ceil(data.length / W);
+  const amp = H / 2;
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw waveform
+  ctx.beginPath();
+  ctx.strokeStyle = '#00d4ff';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i++) {
+    let min = 1, max = -1;
+    for (let j = 0; j < step; j++) {
+      const val = data[i * step + j] || 0;
+      if (val < min) min = val;
+      if (val > max) max = val;
+    }
+    ctx.moveTo(i, amp + min * amp * 0.9);
+    ctx.lineTo(i, amp + max * amp * 0.9);
+  }
+  ctx.stroke();
+
+  // Draw mark line
+  const markPos = parseFloat(document.getElementById('s-mark-position').value) || 0;
+  const markX = (markPos / buf.duration) * W;
+  ctx.strokeStyle = '#ffcc00';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(markX, 0);
+  ctx.lineTo(markX, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Label
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('▼ MARK ' + formatTime(markPos), Math.min(markX + 4, W - 80), 14);
+}
+
+function saveSettingsFromForm() {
+  const newSettings = {
+    tournamentName: document.getElementById('s-tournament-name').value.trim() || 'Beat Challenge',
+    audioUrl: document.getElementById('s-audio-url').value.trim(),
+    markPosition: parseFloat(document.getElementById('s-mark-position').value) || 30,
+    startMin: parseFloat(document.getElementById('s-start-min').value) || 5,
+    startMax: parseFloat(document.getElementById('s-start-max').value) || 15,
+    idleMusicUrl: document.getElementById('s-idle-music-url').value.trim(),
+  };
+
+  // Validate
+  if (newSettings.startMin >= newSettings.startMax) {
+    alert('Min start must be less than Max start.');
+    return;
+  }
+
+  settings = newSettings;
+  saveSettings(settings);
+  showScreen('idle');
+}
+
+/* ============================================================
+   TOURNAMENT SETUP
+   ============================================================ */
+let pendingPlayers = [];
+
+function renderTournamentSetup() {
+  pendingPlayers = [];
+  renderPlayerList();
+
+  const existing = loadTournament();
+  const card = document.getElementById('load-tournament-card');
+  if (existing && existing.rounds && existing.rounds.length > 0) {
+    card.style.display = 'block';
+    const inProgress = existing.rounds.some(r => r.some(m => !m.winner));
+    document.getElementById('saved-tournament-info').textContent =
+      `${existing.players.length} players · Round ${existing.currentRound + 1} · ${inProgress ? 'In progress' : 'Completed'}`;
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+function renderPlayerList() {
+  const list = document.getElementById('player-list');
+  list.innerHTML = '';
+  pendingPlayers.forEach((name, i) => {
+    const item = document.createElement('div');
+    item.className = 'player-item';
+    item.innerHTML = `
+      <div class="player-number">${i + 1}</div>
+      <div class="player-name-display">${escapeHtml(name)}</div>
+      <button class="btn btn-danger btn-sm" onclick="removePlayer(${i})">✕</button>
+    `;
+    list.appendChild(item);
+  });
+  document.getElementById('start-tournament-btn').disabled = pendingPlayers.length < 2;
+}
+
+function addPlayer() {
+  const input = document.getElementById('new-player-name');
+  const name = input.value.trim();
+  if (!name) return;
+  if (pendingPlayers.includes(name)) { alert('Player already in list.'); return; }
+  pendingPlayers.push(name);
+  input.value = '';
+  renderPlayerList();
+  input.focus();
+}
+
+function removePlayer(index) {
+  pendingPlayers.splice(index, 1);
+  renderPlayerList();
+}
+
+function startTournament() {
+  if (pendingPlayers.length < 2) return;
+  // Shuffle players
+  const shuffled = [...pendingPlayers].sort(() => Math.random() - 0.5);
+  tournament = createBracket(shuffled);
+  saveTournament(tournament);
+  showScreen('bracket');
+}
+
+function resumeTournament() {
+  tournament = loadTournament();
+  showScreen('bracket');
+}
+
+function clearTournament() {
+  if (!confirm('Delete saved tournament?')) return;
+  clearTournamentStorage();
+  tournament = null;
+  renderTournamentSetup();
+}
+
+/* ============================================================
+   BRACKET LOGIC
+   ============================================================ */
+function createBracket(players) {
+  const size = nextPow2(players.length);
+  const padded = [...players];
+  while (padded.length < size) padded.push(null); // null = bye slot
+
+  // Round 1: pair players, mark explicit byes
+  const firstRound = [];
+  for (let i = 0; i < padded.length; i += 2) {
+    const p1 = padded[i], p2 = padded[i + 1];
+    const match = { p1, p2, winner: null, isBye: false };
+    if (p1 === null && p2 === null) { match.winner = null; match.isBye = true; }
+    else if (p1 === null)           { match.winner = p2;   match.isBye = true; }
+    else if (p2 === null)           { match.winner = p1;   match.isBye = true; }
+    firstRound.push(match);
+  }
+
+  // Build empty subsequent rounds
+  const rounds = [firstRound];
+  let prev = firstRound;
+  while (prev.length > 1) {
+    const next = [];
+    for (let i = 0; i < prev.length; i += 2) {
+      next.push({ p1: null, p2: null, winner: null, isBye: false });
+    }
+    rounds.push(next);
+    prev = next;
+  }
+
+  // Iteratively propagate bye results until stable.
+  // Track which null slots came from a bye (vs TBD from a real match not yet played)
+  // using p1NullBye / p2NullBye markers on the destination match.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let r = 0; r < rounds.length - 1; r++) {
+      for (let m = 0; m < rounds[r].length; m++) {
+        const match = rounds[r][m];
+        if (!match.isBye) continue; // only byes advance automatically
+
+        const nextIdx = Math.floor(m / 2);
+        const slot    = m % 2 === 0 ? 'p1' : 'p2';
+        const nm      = rounds[r + 1][nextIdx];
+
+        // Propagate winner (may be null for a null-vs-null bye)
+        if (nm[slot] !== match.winner) {
+          nm[slot] = match.winner;
+          changed = true;
+        }
+        // If winner is null, mark the destination slot as "null from a bye"
+        if (match.winner === null) {
+          nm[slot + 'NullBye'] = true;
+        }
+
+        // Check whether the next match is now itself a bye.
+        // Only resolve if the *null* slot is marked as coming from a bye,
+        // never when it's TBD (waiting for an upstream non-bye match).
+        if (!nm.isBye && !nm.winner) {
+          if (nm.p1 !== null && nm.p2 === null && nm.p2NullBye) {
+            nm.winner = nm.p1; nm.isBye = true; changed = true;
+          } else if (nm.p2 !== null && nm.p1 === null && nm.p1NullBye) {
+            nm.winner = nm.p2; nm.isBye = true; changed = true;
+          } else if (nm.p1 === null && nm.p2 === null && nm.p1NullBye && nm.p2NullBye) {
+            nm.winner = null; nm.isBye = true; changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return { players, rounds };
+}
+
+function nextPow2(n) {
+  let p = 1;
+  while (p < n) p *= 2;
+  return p;
+}
+
+function findCurrentMatch(t) {
+  for (let r = 0; r < t.rounds.length; r++) {
+    for (let m = 0; m < t.rounds[r].length; m++) {
+      const match = t.rounds[r][m];
+      if (!match.winner && !match.isBye && match.p1 && match.p2) {
+        return { roundIdx: r, matchIdx: m };
+      }
+    }
+  }
+  return null; // tournament done
+}
+
+function getTournamentWinner(t) {
+  if (!t) return null;
+  const lastRound = t.rounds[t.rounds.length - 1];
+  if (lastRound && lastRound[0] && lastRound[0].winner) return lastRound[0].winner;
+  return null;
+}
+
+/* ============================================================
+   BRACKET RENDER
+   ============================================================ */
+function renderBracket() {
+  if (!tournament) { showScreen('tournament-setup'); return; }
+
+  document.getElementById('bracket-title').textContent =
+    '🏆 ' + (settings.tournamentName || 'Tournament');
+
+  const current = findCurrentMatch(tournament);
+  const winner = getTournamentWinner(tournament);
+
+  if (winner) {
+    document.getElementById('bracket-round-info').textContent = '🎉 Tournament complete!';
+    document.getElementById('bracket-start-btn').textContent = '🏠 Home';
+    document.getElementById('bracket-start-btn').onclick = () => showScreen('idle');
+  } else if (current) {
+    const roundNames = getRoundNames(tournament.rounds.length);
+    document.getElementById('bracket-round-info').textContent =
+      `Current: ${roundNames[current.roundIdx]}`;
+    document.getElementById('bracket-start-btn').textContent = '⚡ Start Match';
+    document.getElementById('bracket-start-btn').onclick = startCurrentMatch;
+  }
+
+  const body = document.getElementById('bracket-body');
+  body.innerHTML = '';
+
+  const roundNames = getRoundNames(tournament.rounds.length);
+
+  tournament.rounds.forEach((round, rIdx) => {
+    const col = document.createElement('div');
+    col.className = 'bracket-round';
+
+    const title = document.createElement('div');
+    title.className = 'bracket-round-title';
+    title.textContent = roundNames[rIdx];
+    col.appendChild(title);
+
+    round.forEach((match, mIdx) => {
+      const isCurrent = current && current.roundIdx === rIdx && current.matchIdx === mIdx;
+      const matchEl = document.createElement('div');
+      matchEl.className = 'bracket-match' +
+        (isCurrent ? ' current' : (match.winner ? ' completed' : ''));
+
+      const p1El = document.createElement('div');
+      p1El.className = 'bracket-player' + (match.winner === match.p1 ? ' winner' : '') +
+                       (!match.p1 ? ' bye' : '');
+      p1El.innerHTML = `
+        <span>${match.p1 || 'TBD'}</span>
+        ${match.winner === match.p1 ? '<span class="bracket-player-badge">🏆</span>' : ''}
+      `;
+
+      const p2El = document.createElement('div');
+      p2El.className = 'bracket-player' + (match.winner === match.p2 ? ' winner' : '') +
+                       (!match.p2 ? ' bye' : '');
+      p2El.innerHTML = `
+        <span>${match.p2 || 'TBD'}</span>
+        ${match.winner === match.p2 ? '<span class="bracket-player-badge">🏆</span>' : ''}
+      `;
+
+      matchEl.appendChild(p1El);
+      matchEl.appendChild(p2El);
+      col.appendChild(matchEl);
+    });
+
+    body.appendChild(col);
+  });
+
+  // Winner column
+  if (winner) {
+    const col = document.createElement('div');
+    col.className = 'bracket-round';
+    col.innerHTML = `
+      <div class="bracket-round-title">🏆 Champion</div>
+      <div style="padding:20px;text-align:center;">
+        <div class="game-title champion-glow" style="font-size:1.5rem;">${escapeHtml(winner)}</div>
+      </div>
+    `;
+    body.appendChild(col);
+  }
+}
+
+function getRoundNames(totalRounds) {
+  const names = [];
+  for (let i = 0; i < totalRounds; i++) {
+    const remaining = totalRounds - i;
+    if (remaining === 1) names.push('Final');
+    else if (remaining === 2) names.push('Semi-Final');
+    else if (remaining === 3) names.push('Quarter-Final');
+    else names.push(`Round ${i + 1}`);
+  }
+  return names;
+}
+
+/* ============================================================
+   MATCH FLOW
+   ============================================================ */
+function startCurrentMatch() {
+  if (!tournament) return;
+
+  const current = findCurrentMatch(tournament);
+  if (!current) {
+    renderBracket();
+    return;
+  }
+
+  const match = tournament.rounds[current.roundIdx][current.matchIdx];
+  matchState.p1Name = match.p1;
+  matchState.p2Name = match.p2;
+  matchState.currentRoundIdx = current.roundIdx;
+  matchState.currentMatchIdx = current.matchIdx;
+
+  // Reset
+  matchState.p1HitTime = null;
+  matchState.p2HitTime = null;
+  matchState.p1Dev = null;
+  matchState.p2Dev = null;
+  matchState.phase = 'waiting';
+
+  document.getElementById('match-p1-name').textContent = match.p1;
+  document.getElementById('match-p2-name').textContent = match.p2;
+  document.getElementById('match-hit-p1').textContent = 'Waiting…';
+  document.getElementById('match-hit-p1').className = 'match-hit-status';
+  document.getElementById('match-hit-p2').textContent = 'Waiting…';
+  document.getElementById('match-hit-p2').className = 'match-hit-status';
+  document.getElementById('match-key-p1').classList.remove('pressed');
+  document.getElementById('match-key-p2').classList.remove('pressed');
+  document.getElementById('match-progress-bar').style.width = '0';
+  document.getElementById('countdown-display').innerHTML = '';
+  document.getElementById('match-vs-text').style.display = 'block';
+  document.getElementById('match-status-text').textContent = 'Press SPACE or any key to start';
+
+  showScreen('match');
+
+  // Start countdown after a short delay
+  setTimeout(() => beginCountdown(), 800);
+}
+
+function beginCountdown() {
+  matchState.phase = 'countdown';
+  document.getElementById('match-status-text').textContent = '';
+  document.getElementById('match-vs-text').style.display = 'none';
+
+  const ctx = getAudioCtx();
+  let countdownStep = 3;
+
+  const step = () => {
+    if (matchState.phase !== 'countdown') return;
+
+    if (countdownStep > 0) {
+      showCountdownNumber(countdownStep);
+      playBeep(COUNTDOWN_BEEP_FREQ[3 - countdownStep], 0.15);
+      countdownStep--;
+      setTimeout(step, 1000);
+    } else {
+      // GO!
+      showCountdownGo();
+      playBeep(COUNTDOWN_BEEP_FREQ[3], 0.3);
+
+      // Calculate random song offset
+      const mark = settings.markPosition;
+      const minBefore = settings.startMin;
+      const maxBefore = settings.startMax;
+      const randomBefore = minBefore + Math.random() * (maxBefore - minBefore);
+      const songOffset = Math.max(0, mark - randomBefore);
+
+      matchState.songOffset = songOffset;
+      matchState.markPosition = mark;
+
+      // Start audio slightly after the GO! display
+      const startDelay = 0.3; // seconds
+      const acStartTime = ctx.currentTime + startDelay;
+      matchState.markContextTime = acStartTime + (mark - songOffset);
+
+      // Start the song
+      startGameAudio(songOffset, acStartTime);
+      matchState.phase = 'playing';
+
+      // Clear GO display after a moment
+      setTimeout(() => {
+        if (matchState.phase === 'playing') {
+          document.getElementById('countdown-display').innerHTML = '';
+        }
+      }, 600);
+
+      // Schedule auto-end timeout
+      const timeUntilMark = (matchState.markContextTime - ctx.currentTime) * 1000;
+      matchState.resultTimeout = setTimeout(() => {
+        if (matchState.phase === 'playing') {
+          endMatch();
+        }
+      }, timeUntilMark + RESULT_TIMEOUT_AFTER_MARK);
+
+      // Progress bar animation
+      startProgressBar(acStartTime, matchState.markContextTime);
+    }
+  };
+
+  step();
+}
+
+function showCountdownNumber(n) {
+  const el = document.getElementById('countdown-display');
+  el.innerHTML = `<div class="countdown-number countdown-${n}">${n}</div>`;
+}
+
+function showCountdownGo() {
+  const el = document.getElementById('countdown-display');
+  el.innerHTML = `<div class="countdown-number countdown-go">GO!</div>`;
+}
+
+function startProgressBar(startAcTime, markAcTime) {
+  const el = document.getElementById('match-progress-bar');
+  const duration = markAcTime - startAcTime;
+
+  matchState.progressInterval = setInterval(() => {
+    const ctx = getAudioCtx();
+    const elapsed = ctx.currentTime - startAcTime;
+    const pct = Math.min(100, (elapsed / duration) * 100);
+    el.style.width = pct + '%';
+
+    if (pct >= 100) {
+      clearInterval(matchState.progressInterval);
+    }
+  }, 50);
+}
+
+function startGameAudio(offsetSeconds, acStartTime) {
+  if (!audioBuffer) return;
+  const ctx = getAudioCtx();
+  stopGameAudio();
+  audioSource = ctx.createBufferSource();
+  audioSource.buffer = audioBuffer;
+  audioSource.connect(ctx.destination);
+  audioSource.start(acStartTime, offsetSeconds);
+}
+
+function stopGameAudio() {
+  if (audioSource) {
+    try { audioSource.stop(); } catch (_) {}
+    audioSource = null;
+  }
+}
+
+function clearMatchTimers() {
+  if (matchState.resultTimeout) {
+    clearTimeout(matchState.resultTimeout);
+    matchState.resultTimeout = null;
+  }
+  if (matchState.progressInterval) {
+    clearInterval(matchState.progressInterval);
+    matchState.progressInterval = null;
+  }
+}
+
+function onPlayerHit(player) {
+  if (matchState.phase !== 'playing') return;
+  const ctx = getAudioCtx();
+  const hitTime = ctx.currentTime;
+  const dev = hitTime - matchState.markContextTime;
+
+  if (player === 1 && matchState.p1HitTime === null) {
+    matchState.p1HitTime = hitTime;
+    matchState.p1Dev = dev;
+    const devStr = formatDeviation(dev);
+    document.getElementById('match-hit-p1').textContent = '✓ HIT! ' + devStr;
+    document.getElementById('match-hit-p1').className = 'match-hit-status hit-done';
+    document.getElementById('match-key-p1').classList.add('pressed');
+    flashHalf('p1');
+  } else if (player === 2 && matchState.p2HitTime === null) {
+    matchState.p2HitTime = hitTime;
+    matchState.p2Dev = dev;
+    const devStr = formatDeviation(dev);
+    document.getElementById('match-hit-p2').textContent = '✓ HIT! ' + devStr;
+    document.getElementById('match-hit-p2').className = 'match-hit-status hit-done';
+    document.getElementById('match-key-p2').classList.add('pressed');
+    flashHalf('p2');
+  }
+
+  // If both hit, end match after brief pause
+  if (matchState.p1HitTime !== null && matchState.p2HitTime !== null) {
+    clearMatchTimers();
+    setTimeout(() => endMatch(), 800);
+  }
+}
+
+function flashHalf(player) {
+  const el = document.getElementById(`match-half-${player}`);
+  el.classList.add('hit');
+  setTimeout(() => el.classList.remove('hit'), 400);
+}
+
+function endMatch() {
+  if (matchState.phase === 'ended') return;
+  matchState.phase = 'ended';
+  clearMatchTimers();
+  stopGameAudio();
+
+  // Determine winner
+  const p1Dev = matchState.p1Dev;
+  const p2Dev = matchState.p2Dev;
+
+  let winner;
+  if (p1Dev === null && p2Dev === null) {
+    // No one hit — random winner or no winner? Let's pick whoever was closer
+    // (both null means neither hit — technically a draw; pick p1 by default or retry?)
+    // We'll count this as no valid result; show a "draw" or ask to redo
+    winner = null;
+  } else if (p1Dev === null) {
+    winner = matchState.p2Name;
+  } else if (p2Dev === null) {
+    winner = matchState.p1Name;
+  } else {
+    // Closest to 0 wins (absolute deviation)
+    winner = Math.abs(p1Dev) <= Math.abs(p2Dev) ? matchState.p1Name : matchState.p2Name;
+  }
+
+  // Save winner to tournament
+  if (winner) {
+    const match = tournament.rounds[matchState.currentRoundIdx][matchState.currentMatchIdx];
+    match.winner = winner;
+    propagateWinner(tournament, matchState.currentRoundIdx, matchState.currentMatchIdx, winner);
+    saveTournament(tournament);
+  }
+
+  showResultScreen(winner);
+}
+
+function propagateWinner(t, roundIdx, matchIdx, winner) {
+  if (roundIdx + 1 >= t.rounds.length) return;
+  const nextMatchIdx = Math.floor(matchIdx / 2);
+  const isP1 = (matchIdx % 2 === 0);
+  const nextMatch = t.rounds[roundIdx + 1][nextMatchIdx];
+  if (isP1) nextMatch.p1 = winner;
+  else nextMatch.p2 = winner;
+
+  // Auto-advance as a bye only if the *other* slot is null because it was a bye
+  // (marked p1NullBye / p2NullBye at bracket-creation time), never when it's TBD.
+  if (!nextMatch.isBye) {
+    if (nextMatch.p1 === null && nextMatch.p2 !== null && nextMatch.p1NullBye) {
+      nextMatch.winner = nextMatch.p2;
+      nextMatch.isBye = true;
+      propagateWinner(t, roundIdx + 1, nextMatchIdx, nextMatch.winner);
+    } else if (nextMatch.p2 === null && nextMatch.p1 !== null && nextMatch.p2NullBye) {
+      nextMatch.winner = nextMatch.p1;
+      nextMatch.isBye = true;
+      propagateWinner(t, roundIdx + 1, nextMatchIdx, nextMatch.winner);
+    }
+  }
+}
+
+function abortMatch() {
+  clearMatchTimers();
+  stopGameAudio();
+  matchState.phase = 'idle';
+  showScreen('bracket');
+}
+
+function playBeep(freq, duration) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration + 0.05);
+  } catch (_) {}
+}
+
+/* ============================================================
+   RESULT SCREEN
+   ============================================================ */
+function showResultScreen(winner) {
+  const p1Dev = matchState.p1Dev;
+  const p2Dev = matchState.p2Dev;
+  const p1Name = matchState.p1Name;
+  const p2Name = matchState.p2Name;
+
+  const tournamentWinner = getTournamentWinner(tournament);
+
+  // Banner
+  const banner = document.getElementById('result-winner-banner');
+  if (tournamentWinner) {
+    banner.style.background = 'linear-gradient(135deg, rgba(255,204,0,0.2), rgba(255,100,0,0.2))';
+    banner.style.border = '3px solid var(--accent3)';
+    banner.innerHTML = `
+      <div class="result-winner-label text-accent3">🏆 TOURNAMENT CHAMPION 🏆</div>
+      <div class="result-winner-name champion-glow text-accent3">${escapeHtml(tournamentWinner)}</div>
+    `;
+    launchConfetti();
+  } else if (winner) {
+    banner.style.background = 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,100,50,0.15))';
+    banner.style.border = '3px solid var(--success)';
+    banner.innerHTML = `
+      <div class="result-winner-label text-success">Winner</div>
+      <div class="result-winner-name text-success">${escapeHtml(winner)}</div>
+      <div class="result-winner-sub text-dim">Advances to next round</div>
+    `;
+  } else {
+    banner.style.background = 'linear-gradient(135deg, rgba(100,100,200,0.15), rgba(50,50,150,0.15))';
+    banner.style.border = '3px solid var(--surface3)';
+    banner.innerHTML = `
+      <div class="result-winner-label">No valid hit recorded</div>
+      <div class="result-winner-name text-dim" style="font-size:2rem;">Draw</div>
+      <div class="result-winner-sub text-dim">Please replay this match</div>
+    `;
+  }
+
+  // Score cards
+  const scores = document.getElementById('result-scores');
+  const p1IsWinner = winner === p1Name;
+  const p2IsWinner = winner === p2Name;
+
+  scores.innerHTML = `
+    <div class="result-score-card ${p1IsWinner ? 'winner-card' : ''}" style="background:rgba(255,51,102,0.08);border-color:${p1IsWinner ? 'var(--accent3)' : 'var(--p1)'};">
+      <div class="result-score-player text-accent1">${escapeHtml(p1Name)}</div>
+      <div style="font-size:0.75rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">KEY: A</div>
+      <div class="result-score-dev" style="color:${p1Dev !== null ? deviationColor(p1Dev) : 'var(--text-dim)'}">
+        ${p1Dev !== null ? formatDeviation(p1Dev) : 'No hit'}
+      </div>
+      <div class="result-score-dev-label">deviation from mark</div>
+      ${p1Dev !== null ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--text-dim)">${ratingText(p1Dev)}</div>` : ''}
+    </div>
+    <div class="result-score-card ${p2IsWinner ? 'winner-card' : ''}" style="background:rgba(0,212,255,0.08);border-color:${p2IsWinner ? 'var(--accent3)' : 'var(--p2)'};">
+      <div class="result-score-player text-accent2">${escapeHtml(p2Name)}</div>
+      <div style="font-size:0.75rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">KEY: L</div>
+      <div class="result-score-dev" style="color:${p2Dev !== null ? deviationColor(p2Dev) : 'var(--text-dim)'}">
+        ${p2Dev !== null ? formatDeviation(p2Dev) : 'No hit'}
+      </div>
+      <div class="result-score-dev-label">deviation from mark</div>
+      ${p2Dev !== null ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--text-dim)">${ratingText(p2Dev)}</div>` : ''}
+    </div>
+  `;
+
+  // Result waveform
+  if (audioBuffer) {
+    const wrap = document.getElementById('result-waveform-wrap');
+    wrap.style.display = 'block';
+    drawResultWaveform();
+  }
+
+  // Continue button
+  const continueBtn = document.getElementById('result-continue-btn');
+  if (tournamentWinner) {
+    continueBtn.textContent = '🏆 See Champion';
+    continueBtn.onclick = () => { showScreen('bracket'); };
+  } else if (!winner) {
+    continueBtn.textContent = '🔁 Replay Match';
+    continueBtn.onclick = () => {
+      // Remove winner and replay
+      const match = tournament.rounds[matchState.currentRoundIdx][matchState.currentMatchIdx];
+      match.winner = null;
+      saveTournament(tournament);
+      startCurrentMatch();
+    };
+  } else {
+    continueBtn.textContent = 'Next Match →';
+    continueBtn.onclick = onResultContinue;
+  }
+
+  document.getElementById('screen-match').classList.remove('active');
+  document.getElementById('screen-result').classList.add('active');
+}
+
+function drawResultWaveform() {
+  const canvas = document.getElementById('result-waveform-canvas');
+  const wrap = document.getElementById('result-waveform-wrap');
+  canvas.width = wrap.clientWidth || 800;
+  canvas.height = 100;
+  const ctx = canvas.getContext('2d');
+  const buf = audioBuffer;
+  if (!buf) return;
+
+  const W = canvas.width, H = canvas.height;
+
+  // Show a window around the mark
+  const mark = settings.markPosition;
+  const windowSize = 4; // seconds around mark
+  const viewStart = Math.max(0, mark - windowSize / 2);
+  const viewEnd = Math.min(buf.duration, mark + windowSize / 2);
+
+  const data = buf.getChannelData(0);
+  const samplesPerPixel = Math.ceil(((viewEnd - viewStart) * buf.sampleRate) / W);
+  const startSample = Math.floor(viewStart * buf.sampleRate);
+  const amp = H / 2;
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#335';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i++) {
+    let min = 1, max = -1;
+    for (let j = 0; j < samplesPerPixel; j++) {
+      const val = data[startSample + i * samplesPerPixel + j] || 0;
+      if (val < min) min = val;
+      if (val > max) max = val;
+    }
+    ctx.moveTo(i, amp + min * amp * 0.9);
+    ctx.lineTo(i, amp + max * amp * 0.9);
+  }
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#00d4ff44';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i++) {
+    let min = 1, max = -1;
+    for (let j = 0; j < samplesPerPixel; j++) {
+      const val = data[startSample + i * samplesPerPixel + j] || 0;
+      if (val < min) min = val;
+      if (val > max) max = val;
+    }
+    ctx.moveTo(i, amp + min * amp * 0.5);
+    ctx.lineTo(i, amp + max * amp * 0.5);
+  }
+  ctx.stroke();
+
+  // Mark line
+  const markX = ((mark - viewStart) / (viewEnd - viewStart)) * W;
+  ctx.strokeStyle = '#ffcc00';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(markX, 0);
+  ctx.lineTo(markX, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Player 1 hit
+  if (matchState.p1Dev !== null) {
+    const p1X = markX + (matchState.p1Dev / (viewEnd - viewStart)) * W;
+    ctx.strokeStyle = '#ff3366';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p1X, 0);
+    ctx.lineTo(p1X, H);
+    ctx.stroke();
+    ctx.fillStyle = '#ff3366';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('A', Math.max(2, p1X - 4), H - 4);
+  }
+
+  // Player 2 hit
+  if (matchState.p2Dev !== null) {
+    const p2X = markX + (matchState.p2Dev / (viewEnd - viewStart)) * W;
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p2X, 0);
+    ctx.lineTo(p2X, H);
+    ctx.stroke();
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('L', Math.max(2, p2X - 4), 12);
+  }
+
+  // Labels
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillText('🎯 MARK', markX + 4, H / 2);
+}
+
+function onResultContinue() {
+  showScreen('bracket');
+}
+
+/* ============================================================
+   CONFETTI
+   ============================================================ */
+let confettiParticles = [];
+let confettiAnim = null;
+
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+
+  confettiParticles = [];
+  const colors = ['#ff3366','#00d4ff','#ffcc00','#00ff88','#ff8800','#aa44ff'];
+  for (let i = 0; i < 200; i++) {
+    confettiParticles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      w: Math.random() * 10 + 5,
+      h: Math.random() * 6 + 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      speed: Math.random() * 3 + 2,
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.2,
+      drift: (Math.random() - 0.5) * 1.5,
+    });
+  }
+
+  const animate = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let anyAlive = false;
+    confettiParticles.forEach(p => {
+      p.y += p.speed;
+      p.x += p.drift;
+      p.angle += p.spin;
+      if (p.y < canvas.height + 20) anyAlive = true;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+    if (anyAlive) confettiAnim = requestAnimationFrame(animate);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  if (confettiAnim) cancelAnimationFrame(confettiAnim);
+  confettiAnim = requestAnimationFrame(animate);
+}
+
+/* ============================================================
+   PARTICLES BACKGROUND
+   ============================================================ */
+(function initParticles() {
+  const canvas = document.getElementById('particles-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function createParticles() {
+    particles = [];
+    for (let i = 0; i < 80; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 2 + 0.5,
+        speed: Math.random() * 0.4 + 0.1,
+        drift: (Math.random() - 0.5) * 0.3,
+        opacity: Math.random() * 0.5 + 0.1,
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => {
+      p.y -= p.speed;
+      p.x += p.drift;
+      if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(100,150,255,${p.opacity})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  createParticles();
+  draw();
+  window.addEventListener('resize', () => { resize(); createParticles(); });
+})();
+
+/* ============================================================
+   KEYBOARD HANDLER
+   ============================================================ */
+document.addEventListener('keydown', (e) => {
+  // Don't capture when typing in inputs
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+
+  const key = e.key.toLowerCase();
+
+  if (matchState.phase === 'playing') {
+    if (key === KEY_P1) onPlayerHit(1);
+    if (key === KEY_P2) onPlayerHit(2);
+  }
+
+  // Space = start match from bracket
+  if (key === ' ' && document.getElementById('screen-bracket').classList.contains('active')) {
+    e.preventDefault();
+    startCurrentMatch();
+  }
+});
+
+/* ============================================================
+   UTILITY
+   ============================================================ */
+function formatTime(seconds) {
+  if (isNaN(seconds) || seconds === null) return '--:--';
+  const m = Math.floor(seconds / 60);
+  const s = (seconds % 60).toFixed(3);
+  return `${m}:${s.padStart(6, '0')}`;
+}
+
+function formatDeviation(dev) {
+  if (dev === null || dev === undefined) return '--';
+  const ms = Math.round(dev * 1000);
+  const sign = ms >= 0 ? '+' : '';
+  return `${sign}${ms}ms`;
+}
+
+function deviationColor(dev) {
+  const ms = Math.abs(dev * 1000);
+  if (ms < 20) return 'var(--success)';
+  if (ms < 60) return 'var(--accent3)';
+  if (ms < 150) return '#ff8800';
+  return 'var(--accent1)';
+}
+
+function ratingText(dev) {
+  const ms = Math.abs(dev * 1000);
+  if (ms < 10) return '⚡ PERFECT';
+  if (ms < 30) return '🎯 Excellent';
+  if (ms < 80) return '👍 Good';
+  if (ms < 200) return '😅 Close';
+  return '😬 Missed';
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init() {
+  refreshIdleTitle();
+  showScreen('idle');
+
+  // Check for environment variable style config (via meta tag)
+  const metaIdle = document.querySelector('meta[name="idle-music"]');
+  if (metaIdle && !settings.idleMusicUrl) {
+    settings.idleMusicUrl = metaIdle.getAttribute('content');
+  }
+
+  // Load audio if URL is configured
+  if (settings.audioUrl) {
+    // Lazy load in background - just flag it
+    console.log('Audio URL configured:', settings.audioUrl);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
