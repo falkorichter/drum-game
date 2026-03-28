@@ -1558,6 +1558,30 @@ function drawWaveform(playheadTime) {
   ctx.strokeRect(zxStart, 0, zxEnd - zxStart, H);
   ctx.setLineDash([]);
 
+  // Shade start-range region: [mark − maxBefore, mark − minBefore]
+  const minBefore = parseFloat(document.getElementById('s-start-min').value) || settings.startMin || 5;
+  const maxBefore = parseFloat(document.getElementById('s-start-max').value) || settings.startMax || 15;
+  const rangeStart = Math.max(0, markPos - maxBefore);
+  const rangeEnd   = Math.max(0, markPos - minBefore);
+  if (rangeEnd > rangeStart) {
+    const rxS = (rangeStart / buf.duration) * W;
+    const rxE = (rangeEnd   / buf.duration) * W;
+    ctx.fillStyle = 'rgba(0, 255, 136, 0.07)';
+    ctx.fillRect(rxS, 0, rxE - rxS, H);
+    ctx.strokeStyle = 'rgba(0, 255, 136, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(rxS, 0); ctx.lineTo(rxS, H);
+    ctx.moveTo(rxE, 0); ctx.lineTo(rxE, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0, 255, 136, 0.8)';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(`−${maxBefore}s`, Math.max(2, rxS + 2), 22);
+    ctx.fillText(`−${minBefore}s`, Math.min(rxE + 2, W - 38), 22);
+  }
+
   // Draw mark line
   const markX = (markPos / buf.duration) * W;
   ctx.strokeStyle = '#ffcc00';
@@ -1663,6 +1687,28 @@ function drawZoomWaveform(playheadTime) {
   ctx.fillText(formatTime(viewStart), 4, H - 22);
   const rightLabel = formatTime(viewEnd);
   ctx.fillText(rightLabel, W - ctx.measureText(rightLabel).width - 4, H - 22);
+
+  // Shade start-range region: [mark − maxBefore, mark − minBefore] (if in zoom view)
+  const zMinBefore = parseFloat(document.getElementById('s-start-min').value) || settings.startMin || 5;
+  const zMaxBefore = parseFloat(document.getElementById('s-start-max').value) || settings.startMax || 15;
+  const zRangeStart = Math.max(0, markPos - zMaxBefore);
+  const zRangeEnd   = Math.max(0, markPos - zMinBefore);
+  if (zRangeEnd > zRangeStart) {
+    const rzS = Math.max(0, ((zRangeStart - viewStart) / (viewEnd - viewStart)) * W);
+    const rzE = Math.min(W, ((zRangeEnd   - viewStart) / (viewEnd - viewStart)) * W);
+    if (rzE > rzS) {
+      ctx.fillStyle = 'rgba(0, 255, 136, 0.07)';
+      ctx.fillRect(rzS, 0, rzE - rzS, H - 18);
+      ctx.strokeStyle = 'rgba(0, 255, 136, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      if (rzS > 0) { ctx.moveTo(rzS, 0); ctx.lineTo(rzS, H - 18); }
+      if (rzE < W) { ctx.moveTo(rzE, 0); ctx.lineTo(rzE, H - 18); }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
 
   // Centre mark line (the target)
   const markX = ((markPos - viewStart) / (viewEnd - viewStart)) * W;
@@ -2223,11 +2269,16 @@ function endMatch() {
   const p1Dev = matchState.p1Dev;
   const p2Dev = matchState.p2Dev;
 
+  // Tie: both players hit and their absolute deviations are within 1 ms of each other
+  const TIE_THRESHOLD = 0.001;
+  if (p1Dev !== null && p2Dev !== null &&
+      Math.abs(Math.abs(p1Dev) - Math.abs(p2Dev)) <= TIE_THRESHOLD) {
+    showResultScreen(null, true);
+    return;
+  }
+
   let winner;
   if (p1Dev === null && p2Dev === null) {
-    // No one hit — random winner or no winner? Let's pick whoever was closer
-    // (both null means neither hit — technically a draw; pick p1 by default or retry?)
-    // We'll count this as no valid result; show a "draw" or ask to redo
     winner = null;
   } else if (p1Dev === null) {
     winner = matchState.p2Name;
@@ -2235,7 +2286,7 @@ function endMatch() {
     winner = matchState.p1Name;
   } else {
     // Closest to 0 wins (absolute deviation)
-    winner = Math.abs(p1Dev) <= Math.abs(p2Dev) ? matchState.p1Name : matchState.p2Name;
+    winner = Math.abs(p1Dev) < Math.abs(p2Dev) ? matchState.p1Name : matchState.p2Name;
   }
 
   // Save winner to tournament
@@ -2246,7 +2297,7 @@ function endMatch() {
     saveTournament(tournament);
   }
 
-  showResultScreen(winner);
+  showResultScreen(winner, false);
 }
 
 function propagateWinner(t, roundIdx, matchIdx, winner) {
@@ -2298,7 +2349,7 @@ function playBeep(freq, duration) {
 /* ============================================================
    RESULT SCREEN
    ============================================================ */
-function showResultScreen(winner) {
+function showResultScreen(winner, isTie = false) {
   const p1Dev = matchState.p1Dev;
   const p2Dev = matchState.p2Dev;
   const p1Name = matchState.p1Name;
@@ -2308,7 +2359,15 @@ function showResultScreen(winner) {
 
   // Banner
   const banner = document.getElementById('result-winner-banner');
-  if (tournamentWinner) {
+  if (isTie) {
+    banner.style.background = 'linear-gradient(135deg, rgba(255,140,0,0.2), rgba(255,200,0,0.2))';
+    banner.style.border = '3px solid #ff8800';
+    banner.innerHTML = `
+      <div class="result-winner-label" style="color:#ff8800;">⚡ TIE! ⚡</div>
+      <div class="result-winner-name" style="font-size:1.5rem;color:#ff8800;">Both players hit at the same time!</div>
+      <div class="result-winner-sub text-dim">Replay with new random parameters</div>
+    `;
+  } else if (tournamentWinner) {
     banner.style.background = 'linear-gradient(135deg, rgba(255,204,0,0.2), rgba(255,100,0,0.2))';
     banner.style.border = '3px solid var(--accent3)';
     banner.innerHTML = `
@@ -2369,7 +2428,13 @@ function showResultScreen(winner) {
 
   // Continue button
   const continueBtn = document.getElementById('result-continue-btn');
-  if (tournamentWinner) {
+  if (isTie) {
+    continueBtn.textContent = '⚡ Replay (Tie)';
+    continueBtn.onclick = () => {
+      stopGameAudio();
+      startCurrentMatch();
+    };
+  } else if (tournamentWinner) {
     continueBtn.textContent = '🏆 See Champion';
     continueBtn.onclick = () => { showScreen('bracket'); };
   } else if (!winner) {
