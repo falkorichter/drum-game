@@ -1185,6 +1185,11 @@ function showScreen(name) {
     matchState.phase = 'idle';
   }
 
+  // Stop settings preview when leaving settings
+  if (name !== 'settings') {
+    stopPreview();
+  }
+
   // Idle music
   if (name === 'idle') {
     startIdleMusic();
