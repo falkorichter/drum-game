@@ -2685,12 +2685,31 @@ function drawResultWaveform() {
   if (!buf) return;
 
   const W = canvas.width, H = canvas.height;
-
-  // Show a window around the mark
   const mark = settings.markPosition;
-  const windowSize = 4; // seconds around mark
-  const viewStart = Math.max(0, mark - windowSize / 2);
-  const viewEnd = Math.min(buf.duration, mark + windowSize / 2);
+  const p1Dev = matchState.p1Dev;
+  const p2Dev = matchState.p2Dev;
+
+  // Collect every time-point that must be visible (mark + any hits)
+  const points = [mark];
+  if (p1Dev !== null) points.push(mark + p1Dev);
+  if (p2Dev !== null) points.push(mark + p2Dev);
+
+  const minPt = Math.min(...points);
+  const maxPt = Math.max(...points);
+  const span  = maxPt - minPt;
+
+  // Padding: at least 0.5 s on each side, or 30 % of the span — whichever is larger
+  const pad = Math.max(0.5, span * 0.3);
+  let viewStart = Math.max(0, minPt - pad);
+  let viewEnd   = Math.min(buf.duration, maxPt + pad);
+
+  // Enforce a minimum 2 s window (so a perfect hit doesn't over-zoom)
+  const MIN_WIN = 2;
+  if (viewEnd - viewStart < MIN_WIN) {
+    const centre = (viewStart + viewEnd) / 2;
+    viewStart = Math.max(0, centre - MIN_WIN / 2);
+    viewEnd   = Math.min(buf.duration, centre + MIN_WIN / 2);
+  }
 
   const data = buf.getChannelData(0);
   const samplesPerPixel = Math.ceil(((viewEnd - viewStart) * buf.sampleRate) / W);
@@ -2700,6 +2719,7 @@ function drawResultWaveform() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
 
+  // Background waveform (dark blue)
   ctx.beginPath();
   ctx.strokeStyle = '#335';
   ctx.lineWidth = 1;
@@ -2717,6 +2737,7 @@ function drawResultWaveform() {
   }
   ctx.stroke();
 
+  // Foreground waveform (cyan tint)
   ctx.beginPath();
   ctx.strokeStyle = '#00d4ff44';
   ctx.lineWidth = 1;
@@ -2734,8 +2755,15 @@ function drawResultWaveform() {
   }
   ctx.stroke();
 
+  const viewSpan = viewEnd - viewStart;
+
+  // Helper: time → canvas x, clamped
+  function timeToX(t) {
+    return ((t - viewStart) / viewSpan) * W;
+  }
+
   // Mark line
-  const markX = ((mark - viewStart) / (viewEnd - viewStart)) * W;
+  const markX = timeToX(mark);
   ctx.strokeStyle = '#ffcc00';
   ctx.lineWidth = 3;
   ctx.setLineDash([4, 3]);
@@ -2746,8 +2774,8 @@ function drawResultWaveform() {
   ctx.setLineDash([]);
 
   // Player 1 hit
-  if (matchState.p1Dev !== null) {
-    const p1X = markX + (matchState.p1Dev / (viewEnd - viewStart)) * W;
+  if (p1Dev !== null) {
+    const p1X = timeToX(mark + p1Dev);
     ctx.strokeStyle = '#ff3366';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -2756,12 +2784,13 @@ function drawResultWaveform() {
     ctx.stroke();
     ctx.fillStyle = '#ff3366';
     ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('A', Math.max(2, p1X - 4), H - 4);
+    const labelX = Math.min(W - 30, Math.max(2, p1X + 3));
+    ctx.fillText('A ' + formatDeviation(p1Dev), labelX, H - 4);
   }
 
   // Player 2 hit
-  if (matchState.p2Dev !== null) {
-    const p2X = markX + (matchState.p2Dev / (viewEnd - viewStart)) * W;
+  if (p2Dev !== null) {
+    const p2X = timeToX(mark + p2Dev);
     ctx.strokeStyle = '#00d4ff';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -2770,13 +2799,15 @@ function drawResultWaveform() {
     ctx.stroke();
     ctx.fillStyle = '#00d4ff';
     ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('L', Math.max(2, p2X - 4), 12);
+    const labelX = Math.min(W - 30, Math.max(2, p2X + 3));
+    ctx.fillText('L ' + formatDeviation(p2Dev), labelX, 12);
   }
 
-  // Labels
+  // Mark label — keep inside canvas
   ctx.fillStyle = '#ffcc00';
   ctx.font = 'bold 11px sans-serif';
-  ctx.fillText('🎯 MARK', markX + 4, H / 2);
+  const markLabelX = Math.min(W - 50, Math.max(2, markX + 4));
+  ctx.fillText('🎯 MARK', markLabelX, H / 2);
 }
 
 function onResultContinue() {
