@@ -511,6 +511,23 @@ input[type="range"]::-webkit-slider-thumb {
   margin-left: 2px;
 }
 
+.bracket-match.reviewable {
+  cursor: pointer;
+}
+.bracket-match.reviewable:hover {
+  border-color: var(--accent2);
+  opacity: 1;
+}
+.bracket-match.reviewable::after {
+  content: '🔍';
+  display: block;
+  text-align: center;
+  font-size: 0.65rem;
+  padding: 2px 0 4px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
 .bracket-round { min-width: 200px; }
 
 .bracket-stats-section {
@@ -2062,9 +2079,15 @@ function renderBracket() {
 
     round.forEach((match, mIdx) => {
       const isCurrent = current && current.roundIdx === rIdx && current.matchIdx === mIdx;
+      // A match is reviewable if it completed (has a winner), is not a bye, and has real players
+      const isReviewable = !match.isBye && match.winner && match.p1 && match.p2;
       const matchEl = document.createElement('div');
       matchEl.className = 'bracket-match' +
-        (isCurrent ? ' current' : (match.winner ? ' completed' : ''));
+        (isCurrent ? ' current' : (match.winner ? ' completed' : '')) +
+        (isReviewable ? ' reviewable' : '');
+      if (isReviewable) {
+        matchEl.onclick = () => showMatchReview(match, rIdx, mIdx);
+      }
 
       const p1El = document.createElement('div');
       p1El.className = 'bracket-player' + (match.winner === match.p1 ? ' winner' : '') +
@@ -2216,6 +2239,19 @@ function replayTournament() {
   tournament = createBracket(players);
   saveTournament(tournament);
   renderBracket();
+}
+
+function showMatchReview(match, roundIdx, matchIdx) {
+  // Populate matchState from stored match data so the result screen can render correctly
+  matchState.p1Name = match.p1;
+  matchState.p2Name = match.p2;
+  matchState.p1Dev  = match.p1Dev !== undefined ? match.p1Dev : null;
+  matchState.p2Dev  = match.p2Dev !== undefined ? match.p2Dev : null;
+  matchState.currentRoundIdx = roundIdx;
+  matchState.currentMatchIdx = matchIdx;
+  // Hide bracket, show result
+  document.getElementById('screen-bracket').classList.remove('active');
+  showResultScreen(match.winner, false, true);
 }
 
 /* ============================================================
@@ -2522,7 +2558,7 @@ function playBeep(freq, duration) {
 /* ============================================================
    RESULT SCREEN
    ============================================================ */
-function showResultScreen(winner, isTie = false) {
+function showResultScreen(winner, isTie = false, isReview = false) {
   const p1Dev = matchState.p1Dev;
   const p2Dev = matchState.p2Dev;
   const p1Name = matchState.p1Name;
@@ -2552,9 +2588,9 @@ function showResultScreen(winner, isTie = false) {
     banner.style.background = 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,100,50,0.15))';
     banner.style.border = '3px solid var(--success)';
     banner.innerHTML = `
-      <div class="result-winner-label text-success">Winner</div>
+      <div class="result-winner-label text-success">${isReview ? '📋 Historical Result' : 'Winner'}</div>
       <div class="result-winner-name text-success">${escapeHtml(winner)}</div>
-      <div class="result-winner-sub text-dim">Advances to next round</div>
+      ${!isReview ? '<div class="result-winner-sub text-dim">Advances to next round</div>' : ''}
     `;
   } else {
     banner.style.background = 'linear-gradient(135deg, rgba(100,100,200,0.15), rgba(50,50,150,0.15))';
@@ -2603,7 +2639,11 @@ function showResultScreen(winner, isTie = false) {
   const continueBtn = document.getElementById('result-continue-btn');
   const rematchBtn  = document.getElementById('result-rematch-btn');
   rematchBtn.style.display = 'none'; // hide by default, shown below when applicable
-  if (isTie) {
+
+  if (isReview) {
+    continueBtn.textContent = '← Bracket';
+    continueBtn.onclick = () => { showScreen('bracket'); };
+  } else if (isTie) {
     continueBtn.textContent = '⚡ Replay (Tie)';
     continueBtn.onclick = () => {
       stopGameAudio();
@@ -2628,7 +2668,10 @@ function showResultScreen(winner, isTie = false) {
     rematchBtn.style.display = '';
   }
 
-  document.getElementById('screen-match').classList.remove('active');
+  // When reviewing from bracket the match screen is not active — navigate from bracket instead
+  if (!isReview) {
+    document.getElementById('screen-match').classList.remove('active');
+  }
   document.getElementById('screen-result').classList.add('active');
 }
 
