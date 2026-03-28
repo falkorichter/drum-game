@@ -487,12 +487,70 @@ input[type="range"]::-webkit-slider-thumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 .bracket-player:last-child { border-bottom: none; }
 .bracket-player.winner { color: var(--accent3); }
 .bracket-player.bye { color: var(--text-dim); font-style: italic; }
 .bracket-player-badge { font-size: 0.75rem; }
+.bracket-player-key {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--text-dim);
+  background: var(--surface3);
+  border-radius: 3px;
+  padding: 1px 4px;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+.bracket-player-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bracket-player-dev {
+  font-size: 0.68rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.bracket-round { min-width: 200px; }
+
+.bracket-stats-section {
+  border-top: 2px solid var(--surface3);
+  background: var(--surface);
+  padding: 12px 24px;
+  max-height: 200px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.bracket-stats-section h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin: 0 0 10px 0;
+}
+.bracket-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.bracket-stats-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 10px 6px 0;
+  border-bottom: 1px solid var(--surface3);
+}
+.bracket-stats-table td {
+  padding: 5px 10px 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.bracket-stats-table tr:last-child td { border-bottom: none; }
+.stat-rank { color: var(--text-dim); font-size: 0.7rem; }
+.stat-eliminated { opacity: 0.45; }
 
 .bracket-footer {
   padding: 16px 24px;
@@ -1000,8 +1058,13 @@ input[type="range"]::-webkit-slider-thumb {
     </div>
   </div>
   <div class="bracket-body" id="bracket-body"></div>
+  <div class="bracket-stats-section" id="bracket-stats-section" style="display:none;">
+    <h3>📊 Player Stats (avg / median absolute deviation)</h3>
+    <table class="bracket-stats-table" id="bracket-stats-table"></table>
+  </div>
   <div class="bracket-footer">
     <button class="btn btn-primary btn-lg" id="bracket-start-btn" onclick="startCurrentMatch()">⚡ Start Match</button>
+    <button class="btn btn-secondary btn-sm" id="bracket-replay-btn" style="display:none;" onclick="replayTournament()">🔄 Replay Tournament</button>
     <button class="btn btn-secondary btn-sm" onclick="showScreen('idle')">🏠 Home</button>
   </div>
 </div>
@@ -1966,16 +2029,21 @@ function renderBracket() {
   const current = findCurrentMatch(tournament);
   const winner = getTournamentWinner(tournament);
 
+  const replayBtn = document.getElementById('bracket-replay-btn');
   if (winner) {
     document.getElementById('bracket-round-info').textContent = '🎉 Tournament complete!';
     document.getElementById('bracket-start-btn').textContent = '🏠 Home';
     document.getElementById('bracket-start-btn').onclick = () => showScreen('idle');
+    replayBtn.style.display = '';
   } else if (current) {
     const roundNames = getRoundNames(tournament.rounds.length);
     document.getElementById('bracket-round-info').textContent =
       `Current: ${roundNames[current.roundIdx]}`;
     document.getElementById('bracket-start-btn').textContent = '⚡ Start Match';
     document.getElementById('bracket-start-btn').onclick = startCurrentMatch;
+    replayBtn.style.display = '';
+  } else {
+    replayBtn.style.display = 'none';
   }
 
   const body = document.getElementById('bracket-body');
@@ -2001,16 +2069,24 @@ function renderBracket() {
       const p1El = document.createElement('div');
       p1El.className = 'bracket-player' + (match.winner === match.p1 ? ' winner' : '') +
                        (!match.p1 ? ' bye' : '');
+      const p1DevStr = (match.p1Dev !== null && match.p1Dev !== undefined)
+        ? `<span class="bracket-player-dev" style="color:${deviationColor(match.p1Dev)}">${formatDeviation(match.p1Dev)}</span>` : '';
       p1El.innerHTML = `
-        <span>${match.p1 || 'TBD'}</span>
+        <span class="bracket-player-key">A</span>
+        <span class="bracket-player-name">${escapeHtml(match.p1 || 'TBD')}</span>
+        ${p1DevStr}
         ${match.winner === match.p1 ? '<span class="bracket-player-badge">🏆</span>' : ''}
       `;
 
       const p2El = document.createElement('div');
       p2El.className = 'bracket-player' + (match.winner === match.p2 ? ' winner' : '') +
                        (!match.p2 ? ' bye' : '');
+      const p2DevStr = (match.p2Dev !== null && match.p2Dev !== undefined)
+        ? `<span class="bracket-player-dev" style="color:${deviationColor(match.p2Dev)}">${formatDeviation(match.p2Dev)}</span>` : '';
       p2El.innerHTML = `
-        <span>${match.p2 || 'TBD'}</span>
+        <span class="bracket-player-key">L</span>
+        <span class="bracket-player-name">${escapeHtml(match.p2 || 'TBD')}</span>
+        ${p2DevStr}
         ${match.winner === match.p2 ? '<span class="bracket-player-badge">🏆</span>' : ''}
       `;
 
@@ -2034,6 +2110,8 @@ function renderBracket() {
     `;
     body.appendChild(col);
   }
+
+  renderBracketStats();
 }
 
 function getRoundNames(totalRounds) {
@@ -2046,6 +2124,98 @@ function getRoundNames(totalRounds) {
     else names.push(`Round ${i + 1}`);
   }
   return names;
+}
+
+function computePlayerStats(t) {
+  // Returns { playerName: { devs: [absMs, ...], stillIn: bool } }
+  const stats = {};
+  const eliminated = new Set();
+  t.rounds.forEach(round => {
+    round.forEach(match => {
+      if (match.isBye || !match.winner) return;
+      // Record deviations for both players who actually hit
+      if (match.p1 && match.p1Dev !== null && match.p1Dev !== undefined) {
+        if (!stats[match.p1]) stats[match.p1] = { devs: [] };
+        stats[match.p1].devs.push(Math.abs(match.p1Dev) * 1000);
+      }
+      if (match.p2 && match.p2Dev !== null && match.p2Dev !== undefined) {
+        if (!stats[match.p2]) stats[match.p2] = { devs: [] };
+        stats[match.p2].devs.push(Math.abs(match.p2Dev) * 1000);
+      }
+      // Track who was eliminated
+      const loser = match.winner === match.p1 ? match.p2 : match.p1;
+      if (loser) eliminated.add(loser);
+    });
+  });
+  // Mark eliminated players
+  Object.keys(stats).forEach(name => {
+    stats[name].stillIn = !eliminated.has(name);
+  });
+  return stats;
+}
+
+function arrMedian(arr) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function arrAverage(arr) {
+  if (!arr.length) return null;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function renderBracketStats() {
+  const section = document.getElementById('bracket-stats-section');
+  const table = document.getElementById('bracket-stats-table');
+  if (!tournament) { section.style.display = 'none'; return; }
+
+  const stats = computePlayerStats(tournament);
+  const entries = Object.entries(stats).filter(([, s]) => s.devs.length > 0);
+  if (!entries.length) { section.style.display = 'none'; return; }
+
+  // Sort: still-in first, then by median asc
+  entries.sort((a, b) => {
+    if (a[1].stillIn !== b[1].stillIn) return a[1].stillIn ? -1 : 1;
+    return (arrMedian(a[1].devs) || 0) - (arrMedian(b[1].devs) || 0);
+  });
+
+  table.innerHTML = `
+    <tr>
+      <th>#</th>
+      <th>Player</th>
+      <th>Matches</th>
+      <th>Avg dev</th>
+      <th>Median dev</th>
+    </tr>
+    ${entries.map(([name, s], i) => {
+      const avg = arrAverage(s.devs);
+      const med = arrMedian(s.devs);
+      const color = med !== null ? deviationColor(med / 1000) : 'var(--text-dim)';
+      return `<tr class="${s.stillIn ? '' : 'stat-eliminated'}">
+        <td class="stat-rank">${i + 1}</td>
+        <td>${escapeHtml(name)}${s.stillIn ? ' <span style="font-size:0.65rem;color:var(--success)">▲</span>' : ''}</td>
+        <td style="color:var(--text-dim)">${s.devs.length}</td>
+        <td style="color:${color}">${avg !== null ? avg.toFixed(1) + 'ms' : '--'}</td>
+        <td style="color:${color}">${med !== null ? med.toFixed(1) + 'ms' : '--'}</td>
+      </tr>`;
+    }).join('')}
+  `;
+  section.style.display = '';
+}
+
+function replayTournament() {
+  if (!tournament || !tournament.players) return;
+  const players = [...tournament.players];
+  // Fisher-Yates shuffle
+  for (let i = players.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [players[i], players[j]] = [players[j], players[i]];
+  }
+  tournament = createBracket(players);
+  saveTournament(tournament);
+  renderBracket();
 }
 
 /* ============================================================
@@ -2294,6 +2464,8 @@ function endMatch() {
   if (winner) {
     const match = tournament.rounds[matchState.currentRoundIdx][matchState.currentMatchIdx];
     match.winner = winner;
+    match.p1Dev = p1Dev;
+    match.p2Dev = p2Dev;
     propagateWinner(tournament, matchState.currentRoundIdx, matchState.currentMatchIdx, winner);
     saveTournament(tournament);
   }
