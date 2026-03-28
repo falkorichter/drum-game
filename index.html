@@ -1898,12 +1898,13 @@ function parsePlayerSeed() {
   const raw = textarea ? textarea.value : (settings.playerSeedList || '');
   const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const seen = new Set();
+  const dupSet = new Set();
   const duplicates = [];
   const unique = [];
   for (const name of lines) {
     const key = name.toLowerCase();
     if (seen.has(key)) {
-      if (!duplicates.includes(name)) duplicates.push(name);
+      if (!dupSet.has(key)) { dupSet.add(key); duplicates.push(name); }
     } else {
       seen.add(key);
       unique.push(name);
@@ -1934,9 +1935,9 @@ function validatePlayerSeed() {
 let pendingPlayers = [];
 
 function renderTournamentSetup() {
-  // Seed pending players from settings seed list
-  const seed = parsePlayerSeed();
-  pendingPlayers = [...seed.names];
+  // Pre-populate pending players from saved seed list
+  const parsedSeed = parsePlayerSeed();
+  pendingPlayers = [...parsedSeed.names];
   renderPlayerList();
 
   const existing = loadTournament();
