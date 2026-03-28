@@ -469,6 +469,14 @@ input[type="range"]::-webkit-slider-thumb {
   margin-bottom: 4px;
 }
 
+.bracket-match-number {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 3px 0 0;
+  letter-spacing: 0.5px;
+}
 .bracket-match {
   background: var(--surface);
   border: 2px solid var(--surface3);
@@ -2152,9 +2160,12 @@ function renderBracket() {
     title.textContent = roundNames[rIdx];
     col.appendChild(title);
 
+    const visibleCount = round.filter(m => !(m.isBye && !m.p1 && !m.p2)).length;
+    let visibleIdx = 0;
     round.forEach((match, mIdx) => {
       // Skip null-vs-null bye matches (padding byes that have no real players)
       if (match.isBye && !match.p1 && !match.p2) return;
+      visibleIdx++;
       const isCurrent = current && current.roundIdx === rIdx && current.matchIdx === mIdx;
       // A match is reviewable if it completed (has a winner), is not a bye, and has real players
       const isReviewable = !match.isBye && match.winner && match.p1 && match.p2;
@@ -2165,6 +2176,11 @@ function renderBracket() {
       if (isReviewable) {
         matchEl.onclick = () => showMatchReview(match, rIdx, mIdx);
       }
+
+      const matchNumEl = document.createElement('div');
+      matchNumEl.className = 'bracket-match-number';
+      matchNumEl.textContent = `Match ${visibleIdx} / ${visibleCount}`;
+      matchEl.appendChild(matchNumEl);
 
       const p1El = document.createElement('div');
       p1El.className = 'bracket-player' + (match.winner === match.p1 ? ' winner' : '') +
