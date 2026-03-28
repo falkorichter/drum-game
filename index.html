@@ -1085,6 +1085,7 @@ let tournament = loadTournament();
 let audioCtx = null;
 let audioBuffer = null;       // decoded game audio
 let audioSource = null;       // currently playing source
+let gameGainNode = null;      // GainNode for post-match fade-out
 let idleAudioEl = null;       // <audio> for idle music
 let previewAudioEl = null;    // <audio> for settings preview
 let idleMusicObjectUrl = null; // blob URL for uploaded idle music file (session-only)
@@ -2134,9 +2135,12 @@ function startGameAudio(offsetSeconds, acStartTime) {
   if (!audioBuffer) return;
   const ctx = getAudioCtx();
   stopGameAudio();
+  gameGainNode = ctx.createGain();
+  gameGainNode.gain.setValueAtTime(1, ctx.currentTime);
+  gameGainNode.connect(ctx.destination);
   audioSource = ctx.createBufferSource();
   audioSource.buffer = audioBuffer;
-  audioSource.connect(ctx.destination);
+  audioSource.connect(gameGainNode);
   audioSource.start(acStartTime, offsetSeconds);
 }
 
@@ -2145,6 +2149,20 @@ function stopGameAudio() {
     try { audioSource.stop(); } catch (_) {}
     audioSource = null;
   }
+  if (gameGainNode) {
+    try { gameGainNode.disconnect(); } catch (_) {}
+    gameGainNode = null;
+  }
+}
+
+function fadeOutGameAudio(delaySeconds, fadeDuration) {
+  if (!audioSource || !gameGainNode) return;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  gameGainNode.gain.setValueAtTime(1, now + delaySeconds);
+  gameGainNode.gain.linearRampToValueAtTime(0, now + delaySeconds + fadeDuration);
+  const totalDelay = (delaySeconds + fadeDuration) * 1000;
+  setTimeout(() => stopGameAudio(), totalDelay + 100);
 }
 
 function clearMatchTimers() {
@@ -2199,7 +2217,7 @@ function endMatch() {
   if (matchState.phase === 'ended') return;
   matchState.phase = 'ended';
   clearMatchTimers();
-  stopGameAudio();
+  fadeOutGameAudio(5, 3);
 
   // Determine winner
   const p1Dev = matchState.p1Dev;
