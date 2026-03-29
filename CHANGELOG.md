@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unit tests for bracket feeder index mapping and expected connector line counts
 - Hint message for disabled "Start Match" button on bracket screen
 - Console error logging for all error handlers
-- `.gitignore` file
 
 ### Changed
 
@@ -28,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Silent error swallowing in try/catch blocks now logs to console for debugging
+
+## [0.3.0] - 2026-03-29
+
+### Fixed
+- Corrected 5-player bracket test assertion: round 1 has 2 real matches (not 1) with the sequential seeding algorithm
+
+### Added
+- GitHub Actions CI workflow to run bracket tests on push and pull request
+- Node.js test runner (`run-tests.js`) to execute `.test.html` files headlessly in CI
+- `npm test` script in `package.json`
 
 ## [0.2.0] - 2026-03-29
 
@@ -50,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Song validation ([PR #7](https://github.com/falkorichter/drum-game/pull/7))
 - `bracket.test.html` — unit tests for bracket logic
 
-[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/falkorichter/drum-game/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/falkorichter/drum-game/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/falkorichter/drum-game/releases/tag/v0.1.0

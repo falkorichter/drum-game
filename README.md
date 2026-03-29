@@ -1,5 +1,7 @@
 # 🥁 Beat Challenge — Drum Game
 
+[![Tests](https://github.com/falkorichter/drum-game/actions/workflows/tests.yml/badge.svg)](https://github.com/falkorichter/drum-game/actions/workflows/tests.yml)
+
 A competitive 2-player rhythm tournament game built as a single static HTML/JS page. Two players compete to hit a specific beat mark in a song as precisely as possible — the closest hit wins.
 
 **▶️ Play it now: <https://falkorichter.github.io/drum-game/>**
@@ -139,14 +141,26 @@ Open `bracket.test.html` in a browser to run the bracket logic unit tests.
 
 Open `export.test.html` in a browser to run the export/import unit tests.
 
+**Run from the command line** (requires [Node.js](https://nodejs.org/) ≥ 18):
+
+```bash
+npm test
+# or directly:
+node run-tests.js
+```
+
+Tests are also executed automatically on every push and pull request via [GitHub Actions](https://github.com/falkorichter/drum-game/actions/workflows/tests.yml).
+
 ---
 
 ## Development Metadata
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3.0 |
+| Version | 0.3.1 |
 | License | MIT |
+| Node.js | ≥ 18 (for tests only) |
+| CI | GitHub Actions (`tests.yml`) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | AI/LLM tools | GitHub Copilot Coding Agent (Claude Sonnet) |
 

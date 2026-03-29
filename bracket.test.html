@@ -213,7 +213,7 @@ section('5 players');
   eq(b.rounds[0].length, 4, 'round 1 has 4 matches');
   const real = realMatches(b.rounds[0]);
   const nb   = nullByes(b.rounds[0]);
-  eq(real.length, 1, '1 real match in round 1');
+  eq(real.length, 2, '2 real matches in round 1');
   eq(nb.length, 1, '1 null-null bye');
   // All 5 players appear
   eq(allPlayersInRound1(b).size, 5, 'all 5 players appear in round 1');
