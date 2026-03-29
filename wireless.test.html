@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wireless Mode Unit Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #eee; }
+  .pass { color: #0f0; } .fail { color: #f33; font-weight: bold; }
+  .section { margin: 16px 0 4px; font-weight: bold; color: #ffcc00; }
+  #summary { margin-top: 20px; font-size: 1.2em; padding: 10px; border-top: 2px solid #555; }
+</style>
+</head>
+<body>
+<h1>🥁 Wireless Mode — Unit Tests</h1>
+<div id="output"></div>
+<div id="summary"></div>
+<script>
+/* === Wireless-mode pure helper functions === */
+
+const out = document.getElementById('output');
+let passed = 0;
+let failed = 0;
+
+function section(label) {
+  const el = document.createElement('div');
+  el.className = 'section';
+  el.textContent = label;
+  out.appendChild(el);
+}
+
+function ok(label) {
+  passed++;
+  const el = document.createElement('div');
+  el.className = 'pass';
+  el.textContent = '  ✓ ' + label;
+  out.appendChild(el);
+}
+
+function fail(label) {
+  failed++;
+  const el = document.createElement('div');
+  el.className = 'fail';
+  el.textContent = '  ✗ ' + label;
+  out.appendChild(el);
+  console.error('  FAIL:', label);
+}
+
+function eq(actual, expected, label) {
+  if (actual === expected) {
+    ok(label);
+  } else {
+    fail(label + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+  }
+}
+
+function isClose(actual, expected, tolerance, label) {
+  if (Math.abs(actual - expected) <= tolerance) {
+    ok(label);
+  } else {
+    fail(label + ' — expected ≈' + expected + ', got ' + actual);
+  }
+}
+
+/* ============================================================
+   Pure helper functions mirroring wireless logic in index.html
+   ============================================================ */
+
+/** One-way latency estimate (seconds) from round-trip time (ms). */
+function computeLatencyCorrection(rttMs) {
+  return Math.max(0, rttMs / 2) / 1000;
+}
+
+/** Deviation of a hit from the mark (both in AudioContext seconds). */
+function computeDeviation(hitTime, markContextTime) {
+  return hitTime - markContextTime;
+}
+
+/**
+ * Adjusted hit time: subtract estimated one-way network latency so
+ * the deviation is closer to the actual moment the phone was struck.
+ */
+function correctedHitTime(audioCtxTime, rttMs) {
+  return audioCtxTime - computeLatencyCorrection(rttMs);
+}
+
+/** Returns true only for valid ws:// or wss:// URLs. */
+function isValidWsUrl(url) {
+  if (typeof url !== 'string') return false;
+  return /^wss?:\/\/.+/.test(url.trim());
+}
+
+/**
+ * Classify an incoming relay-server message by its type field.
+ * Returns 'hit', 'pong', 'status', 'unknown', or 'invalid'.
+ */
+function classifyMessage(raw) {
+  try {
+    const msg = JSON.parse(raw);
+    if (!msg || typeof msg !== 'object') return 'invalid';
+    if (msg.type === 'hit')    return 'hit';
+    if (msg.type === 'pong')   return 'pong';
+    if (msg.type === 'status') return 'status';
+    return 'unknown';
+  } catch (e) {
+    return 'invalid';
+  }
+}
+
+/**
+ * Extract player number from a hit message.
+ * Defaults to 1 when the field is missing or out of range.
+ */
+function extractPlayer(raw) {
+  try {
+    const msg = JSON.parse(raw);
+    return (msg.player === 2) ? 2 : 1;
+  } catch (e) {
+    return 1;
+  }
+}
+
+/* ============================================================
+   TEST SUITE: latency correction
+   ============================================================ */
+section('Latency correction (computeLatencyCorrection)');
+
+eq(computeLatencyCorrection(0),   0,      'zero RTT → 0 s correction');
+eq(computeLatencyCorrection(20),  0.010,  '20 ms RTT → 0.010 s correction');
+eq(computeLatencyCorrection(100), 0.050,  '100 ms RTT → 0.050 s correction');
+eq(computeLatencyCorrection(-5),  0,      'negative RTT clamped to 0');
+eq(computeLatencyCorrection(1),   0.0005, '1 ms RTT → 0.0005 s correction');
+
+/* ============================================================
+   TEST SUITE: deviation computation
+   ============================================================ */
+section('Deviation computation (computeDeviation)');
+
+eq(computeDeviation(10.000, 10.000), 0, 'exact hit → 0');
+isClose(computeDeviation(10.050, 10.000),  0.050,  1e-9, '50 ms late → +0.050');
+isClose(computeDeviation(9.970,  10.000), -0.030,  1e-9, '30 ms early → -0.030');
+isClose(computeDeviation(10.200, 10.000),  0.200,  1e-9, '200 ms late → +0.200');
+
+/* ============================================================
+   TEST SUITE: corrected hit time
+   ============================================================ */
+section('Corrected hit time (correctedHitTime)');
+
+eq(correctedHitTime(10.000, 0),   10.000, 'zero RTT → time unchanged');
+isClose(correctedHitTime(10.000, 20),  9.990,  1e-9, '20 ms RTT → 9.990 s');
+isClose(correctedHitTime(10.000, 200), 9.900,  1e-9, '200 ms RTT → 9.900 s');
+isClose(correctedHitTime(10.000, -10), 10.000, 1e-9, 'negative RTT → time unchanged');
+
+/* ============================================================
+   TEST SUITE: WebSocket URL validation
+   ============================================================ */
+section('WebSocket URL validation (isValidWsUrl)');
+
+eq(isValidWsUrl('ws://192.168.1.5:8765'),    true,  'ws:// with IP is valid');
+eq(isValidWsUrl('wss://example.com/relay'),  true,  'wss:// URL is valid');
+eq(isValidWsUrl('ws://localhost:8765'),       true,  'ws://localhost is valid');
+eq(isValidWsUrl('http://example.com'),        false, 'http:// is not a WS URL');
+eq(isValidWsUrl(''),                          false, 'empty string is invalid');
+eq(isValidWsUrl(null),                        false, 'null is invalid');
+eq(isValidWsUrl(undefined),                   false, 'undefined is invalid');
+eq(isValidWsUrl('ws://'),                     false, 'bare ws:// with no host is invalid');
+eq(isValidWsUrl('  ws://localhost:8765  '),   true,  'whitespace-padded URL is valid (trimmed)');
+
+/* ============================================================
+   TEST SUITE: message classification
+   ============================================================ */
+section('Message classification (classifyMessage)');
+
+eq(classifyMessage('{"type":"hit","player":1,"ts":12345}'), 'hit',     'hit message → "hit"');
+eq(classifyMessage('{"type":"pong","clientTs":12345}'),     'pong',    'pong message → "pong"');
+eq(classifyMessage('{"type":"status","clients":2}'),        'status',  'status message → "status"');
+eq(classifyMessage('{"type":"other"}'),                      'unknown', 'unknown type → "unknown"');
+eq(classifyMessage('not-json'),                              'invalid', 'malformed JSON → "invalid"');
+eq(classifyMessage('null'),                                  'invalid', 'null payload → "invalid"');
+eq(classifyMessage('42'),                                    'invalid', 'non-object payload → "invalid"');
+
+/* ============================================================
+   TEST SUITE: player extraction
+   ============================================================ */
+section('Player extraction (extractPlayer)');
+
+eq(extractPlayer('{"type":"hit","player":1}'),  1, 'player 1 hit');
+eq(extractPlayer('{"type":"hit","player":2}'),  2, 'player 2 hit');
+eq(extractPlayer('{"type":"hit"}'),             1, 'missing player field defaults to 1');
+eq(extractPlayer('{"type":"hit","player":0}'),  1, 'player 0 defaults to 1');
+eq(extractPlayer('{"type":"hit","player":99}'), 1, 'invalid player number defaults to 1');
+eq(extractPlayer('not-json'),                   1, 'parse error defaults to 1');
+
+/* === Summary === */
+const sumEl = document.getElementById('summary');
+if (failed === 0) {
+  sumEl.innerHTML = `<span class="pass">All ${passed} tests passed ✓</span>`;
+} else {
+  sumEl.innerHTML = `<span class="fail">${failed} FAILED</span> / ${passed + failed} total`;
+}
+</script>
+</body>
+</html>

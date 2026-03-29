@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🥁 Drum Stick — Wireless Companion</title>
+<style>
+  :root {
+    --bg: #07071a;
+    --card: #0f0f2e;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e8f0;
+    --text-dim: rgba(232,232,240,0.5);
+    --accent1: #ff3366;
+    --accent2: #00d4ff;
+    --accent3: #ffcc00;
+    --success: #00ff88;
+    --danger: #ff4444;
+    --p1: #ff3366;
+    --p2: #00d4ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+  }
+
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 { font-size: 1.1rem; flex: 1; }
+  #status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--danger); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  #status-dot.connected { background: var(--success); }
+  #status-label { font-size: 0.75rem; color: var(--text-dim); }
+
+  .scroll-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 12px; }
+
+  /* Connection form */
+  .form-row { display: flex; gap: 8px; align-items: center; }
+  input[type="text"] {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    outline: none;
+  }
+  input[type="text"]:focus { border-color: var(--accent2); }
+
+  /* Player selector */
+  .player-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .player-btn {
+    padding: 16px 8px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+  .player-btn.p1 { border-color: var(--p1); }
+  .player-btn.p2 { border-color: var(--p2); }
+  .player-btn.selected.p1 { background: var(--p1); color: #fff; }
+  .player-btn.selected.p2 { background: var(--p2); color: #07071a; }
+  .player-btn small { display: block; font-size: 0.7rem; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+
+  /* Hit button */
+  #hit-btn {
+    width: 100%;
+    padding: 36px 16px;
+    border-radius: 18px;
+    font-size: 2.5rem;
+    font-weight: 900;
+    border: 3px solid var(--accent3);
+    background: rgba(255,204,0,0.08);
+    color: var(--accent3);
+    cursor: pointer;
+    transition: all 0.1s;
+    letter-spacing: 2px;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  #hit-btn:active, #hit-btn.flash { background: var(--accent3); color: #07071a; transform: scale(0.97); }
+  #hit-btn.p1-active { border-color: var(--p1); color: var(--p1); background: rgba(255,51,102,0.08); }
+  #hit-btn.p1-active:active, #hit-btn.p1-active.flash { background: var(--p1); color: #fff; }
+  #hit-btn.p2-active { border-color: var(--p2); color: var(--p2); background: rgba(0,212,255,0.08); }
+  #hit-btn.p2-active:active, #hit-btn.p2-active.flash { background: var(--p2); color: #07071a; }
+
+  /* Motion / sensitivity */
+  .slider-row { display: flex; gap: 10px; align-items: center; }
+  input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent2);
+  }
+  .val-label { font-size: 0.85rem; color: var(--accent3); min-width: 40px; text-align: right; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+  .toggle-label { font-size: 0.9rem; }
+  /* toggle switch */
+  .toggle { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.15);
+    border-radius: 24px; cursor: pointer;
+    transition: background 0.3s;
+  }
+  .toggle-slider:before {
+    content: ''; position: absolute;
+    width: 18px; height: 18px; border-radius: 50%;
+    left: 3px; top: 3px; background: #fff;
+    transition: transform 0.3s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--success); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+  /* Last hit feedback */
+  #last-hit {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 6px;
+    min-height: 20px;
+    transition: color 0.3s;
+  }
+  #last-hit.hit-ok { color: var(--success); }
+
+  /* Connection / status messages */
+  .info-msg {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .info-msg.error { color: var(--danger); }
+  .info-msg.ok    { color: var(--success); }
+
+  /* General button style */
+  .btn {
+    padding: 9px 18px; border-radius: 8px; border: none;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary  { background: var(--accent2); color: #07071a; }
+  .btn-danger   { background: var(--danger);  color: #fff; }
+  .btn-secondary { background: rgba(255,255,255,0.1); color: var(--text); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Motion indicator bar */
+  #motion-bar-wrap { height: 10px; background: rgba(255,255,255,0.07); border-radius: 5px; overflow: hidden; margin-top: 8px; }
+  #motion-bar { height: 100%; width: 0%; background: var(--accent2); border-radius: 5px; transition: width 0.05s linear; }
+
+  /* Help text */
+  .help { font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+
+  /* Motion permission overlay */
+  #motion-permission-card { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div id="status-dot"></div>
+  <h1>🥁 Wireless Drum Stick</h1>
+  <span id="status-label">Disconnected</span>
+</header>
+
+<div class="scroll-area">
+
+  <!-- Connection -->
+  <div class="card" id="connection-card">
+    <h2>📡 Connection</h2>
+    <div class="form-row">
+      <input type="text" id="server-url" placeholder="ws://192.168.x.x:8765" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+      <button class="btn btn-primary" id="connect-btn" onclick="toggleConnect()">Connect</button>
+    </div>
+    <div id="conn-msg" class="info-msg">Enter the WebSocket URL shown by the wireless server.</div>
+  </div>
+
+  <!-- Player selection -->
+  <div class="card">
+    <h2>🎮 Your Role</h2>
+    <div class="player-btns">
+      <button class="player-btn p1 selected" id="btn-p1" onclick="selectPlayer(1)">
+        Player 1
+        <small>Key: A</small>
+      </button>
+      <button class="player-btn p2" id="btn-p2" onclick="selectPlayer(2)">
+        Player 2
+        <small>Key: L</small>
+      </button>
+    </div>
+  </div>
+
+  <!-- HIT button -->
+  <div class="card">
+    <h2>🥁 Hit</h2>
+    <button id="hit-btn" class="p1-active" ontouchstart="handleManualHit(event)" onclick="handleManualHit(event)">
+      HIT!
+    </button>
+    <div id="last-hit"></div>
+    <p class="help" style="margin-top:8px;">Tap the button above <em>or</em> use the motion sensor below to send a hit to the game.</p>
+  </div>
+
+  <!-- Motion sensor -->
+  <div class="card">
+    <h2>📲 Motion Sensor (Accelerometer)</h2>
+
+    <div id="motion-permission-card">
+      <p class="help" style="margin-bottom:10px;">On iOS you need to grant permission to access the motion sensor.</p>
+      <button class="btn btn-primary" onclick="requestMotionPermission()">Grant Motion Permission</button>
+    </div>
+
+    <div class="toggle-row" style="margin-bottom:12px;">
+      <span class="toggle-label">Enable motion detection</span>
+      <label class="toggle">
+        <input type="checkbox" id="motion-toggle" onchange="onMotionToggle(this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="slider-row">
+      <span style="font-size:0.85rem;color:var(--text-dim);">Sensitivity</span>
+      <input type="range" id="sensitivity" min="5" max="60" value="20" step="1" oninput="onSensitivityChange(this.value)">
+      <span class="val-label" id="sensitivity-val">20</span>
+    </div>
+
+    <div id="motion-bar-wrap" title="Real-time acceleration magnitude">
+      <div id="motion-bar"></div>
+    </div>
+    <p class="help" style="margin-top:6px;">
+      Shake or strike the phone sharply (like drumming) to trigger a hit.
+      The bar shows current acceleration — the threshold line is your sensitivity setting.
+    </p>
+    <div id="motion-msg" class="info-msg" style="margin-top:6px;"></div>
+  </div>
+
+  <!-- Help -->
+  <div class="card">
+    <h2>ℹ️ How It Works</h2>
+    <p class="help">
+      1. Run <code style="color:var(--accent2)">npm run wireless</code> on the game computer.<br>
+      2. Open the URL it prints (e.g. <code style="color:var(--accent2)">http://192.168.x.x:8765/companion</code>) here on your phone.<br>
+      3. Enter the <code style="color:var(--accent2)">ws://</code> address in the Connection box above and tap Connect.<br>
+      4. Select your player role (P1 or P2).<br>
+      5. Enable motion detection — or just tap the HIT button.<br>
+      6. When the game starts and the beat approaches, strike the phone like a drum stick! 🥁
+    </p>
+  </div>
+
+</div><!-- /scroll-area -->
+
+<script>
+'use strict';
+
+/* ── State ─────────────────────────────────────────────────── */
+let ws = null;
+let player = 1;           // 1 or 2
+let motionEnabled = false;
+let sensitivity = 20;     // m/s² threshold
+let cooldownUntil = 0;    // timestamp: ignore motion until this time
+const COOLDOWN_MS = 600;  // minimum ms between motion-triggered hits
+
+/* RTT / latency tracking */
+let rttMs = 0;
+let pingInterval = null;
+
+/* ── DOM refs ──────────────────────────────────────────────── */
+const statusDot   = document.getElementById('status-dot');
+const statusLabel = document.getElementById('status-label');
+const connMsg     = document.getElementById('conn-msg');
+const connectBtn  = document.getElementById('connect-btn');
+const serverUrlEl = document.getElementById('server-url');
+const motionMsg   = document.getElementById('motion-msg');
+const motionBar   = document.getElementById('motion-bar');
+const lastHitEl   = document.getElementById('last-hit');
+const hitBtn      = document.getElementById('hit-btn');
+
+/* ── Initialise ────────────────────────────────────────────── */
+(function init() {
+  // Auto-fill server URL from query param or localStorage
+  const params = new URLSearchParams(location.search);
+  const saved  = localStorage.getItem('dg_companion_url');
+  const auto   = params.get('server') || saved || guessServerUrl();
+  serverUrlEl.value = auto;
+
+  // iOS motion permission button
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    document.getElementById('motion-permission-card').style.display = 'block';
+  }
+
+  updateHitBtnStyle();
+})();
+
+function guessServerUrl() {
+  // Guess the WS URL from the page's own origin (if served by wireless-server)
+  try {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${location.hostname}:${location.port || 8765}`;
+  } catch (e) {
+    console.error('guessServerUrl error:', e);
+    return '';
+  }
+}
+
+/* ── Connection ────────────────────────────────────────────── */
+function toggleConnect() {
+  if (ws && ws.readyState <= 1) {
+    disconnect();
+  } else {
+    connect();
+  }
+}
+
+function connect() {
+  const url = serverUrlEl.value.trim();
+  if (!url) {
+    showConnMsg('Please enter the WebSocket server URL.', 'error');
+    return;
+  }
+
+  setStatus('connecting');
+  try {
+    ws = new WebSocket(url);
+  } catch (e) {
+    console.error('WebSocket creation error:', e);
+    setStatus('disconnected');
+    showConnMsg('Invalid URL: ' + e.message, 'error');
+    return;
+  }
+
+  ws.addEventListener('open', () => {
+    setStatus('connected');
+    localStorage.setItem('dg_companion_url', url);
+    showConnMsg('Connected! You are Player ' + player + '.', 'ok');
+    startPing();
+  });
+
+  ws.addEventListener('close', () => {
+    setStatus('disconnected');
+    showConnMsg('Disconnected.', '');
+    stopPing();
+    ws = null;
+  });
+
+  ws.addEventListener('error', (e) => {
+    console.error('WebSocket error:', e);
+    setStatus('disconnected');
+    showConnMsg('Connection error. Check the URL and make sure the server is running.', 'error');
+    stopPing();
+  });
+
+  ws.addEventListener('message', (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'pong') {
+        const rtt = Date.now() - msg.clientTs;
+        rttMs = rtt;
+        // Silently track RTT
+      } else if (msg.type === 'status') {
+        showConnMsg(`Connected ✓  (${msg.clients} client${msg.clients !== 1 ? 's' : ''} on server, RTT: ${rttMs}ms)`, 'ok');
+      }
+    } catch (e) {
+      console.error('Companion message parse error:', e);
+    }
+  });
+}
+
+function disconnect() {
+  if (ws) { try { ws.close(); } catch (e) { console.error('disconnect error:', e); } ws = null; }
+  setStatus('disconnected');
+  stopPing();
+}
+
+function setStatus(state) {
+  if (state === 'connected') {
+    statusDot.className = 'connected';
+    statusLabel.textContent = 'Connected';
+    connectBtn.textContent = 'Disconnect';
+    connectBtn.className = 'btn btn-danger';
+    serverUrlEl.disabled = true;
+  } else if (state === 'connecting') {
+    statusDot.className = '';
+    statusLabel.textContent = 'Connecting…';
+    connectBtn.disabled = true;
+  } else {
+    statusDot.className = '';
+    statusLabel.textContent = 'Disconnected';
+    connectBtn.textContent = 'Connect';
+    connectBtn.className = 'btn btn-primary';
+    connectBtn.disabled = false;
+    serverUrlEl.disabled = false;
+  }
+}
+
+function showConnMsg(text, cls) {
+  connMsg.textContent = text;
+  connMsg.className = 'info-msg ' + (cls || '');
+}
+
+/* ── Ping / RTT ────────────────────────────────────────────── */
+function startPing() {
+  stopPing();
+  pingInterval = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: 'ping', clientTs: Date.now() }));
+      } catch (e) {
+        console.error('Ping send error:', e);
+      }
+    }
+  }, 2000);
+}
+
+function stopPing() {
+  if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+}
+
+/* ── Player selection ──────────────────────────────────────── */
+function selectPlayer(p) {
+  player = p;
+  document.getElementById('btn-p1').classList.toggle('selected', p === 1);
+  document.getElementById('btn-p2').classList.toggle('selected', p === 2);
+  updateHitBtnStyle();
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    showConnMsg(`Connected ✓  You are Player ${p}.`, 'ok');
+  }
+}
+
+function updateHitBtnStyle() {
+  hitBtn.className = player === 1 ? 'p1-active' : 'p2-active';
+}
+
+/* ── Hit sending ───────────────────────────────────────────── */
+function sendHit(sourceLabel) {
+  const ts = Date.now();
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try {
+      ws.send(JSON.stringify({
+        type: 'hit',
+        player,
+        ts,
+        rttMs,
+        source: sourceLabel,
+      }));
+    } catch (e) {
+      console.error('sendHit error:', e);
+    }
+  }
+
+  // Visual feedback
+  const timeStr = new Date(ts).toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+  lastHitEl.textContent = `Last hit: ${timeStr}  (${sourceLabel})`;
+  lastHitEl.className = 'hit-ok';
+  setTimeout(() => { lastHitEl.className = ''; }, 1500);
+
+  // Flash the button
+  hitBtn.classList.add('flash');
+  setTimeout(() => hitBtn.classList.remove('flash'), 150);
+}
+
+function handleManualHit(e) {
+  e.preventDefault();
+  sendHit('tap');
+}
+
+/* ── Motion sensor ─────────────────────────────────────────── */
+function onMotionToggle(enabled) {
+  motionEnabled = enabled;
+  if (enabled) {
+    if (typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission !== 'function') {
+      // Android / non-permission model — just start listening
+      window.addEventListener('devicemotion', onDeviceMotion);
+      motionMsg.textContent = 'Motion detection active.';
+      motionMsg.className = 'info-msg ok';
+    } else if (typeof DeviceMotionEvent === 'undefined') {
+      motionMsg.textContent = 'DeviceMotion API not available on this device/browser.';
+      motionMsg.className = 'info-msg error';
+      document.getElementById('motion-toggle').checked = false;
+      motionEnabled = false;
+    }
+    // iOS permission flow is handled via the button above
+  } else {
+    window.removeEventListener('devicemotion', onDeviceMotion);
+    motionMsg.textContent = '';
+    motionBar.style.width = '0%';
+  }
+}
+
+async function requestMotionPermission() {
+  try {
+    const result = await DeviceMotionEvent.requestPermission();
+    if (result === 'granted') {
+      window.addEventListener('devicemotion', onDeviceMotion);
+      document.getElementById('motion-toggle').checked = true;
+      motionEnabled = true;
+      motionMsg.textContent = 'Motion permission granted.';
+      motionMsg.className = 'info-msg ok';
+    } else {
+      motionMsg.textContent = 'Motion permission denied.';
+      motionMsg.className = 'info-msg error';
+    }
+  } catch (e) {
+    console.error('requestMotionPermission error:', e);
+    motionMsg.textContent = 'Could not request permission: ' + e.message;
+    motionMsg.className = 'info-msg error';
+  }
+}
+
+function onSensitivityChange(val) {
+  sensitivity = parseFloat(val);
+  document.getElementById('sensitivity-val').textContent = val;
+}
+
+let lastAccelMagnitude = 0;
+
+function onDeviceMotion(e) {
+  const accel = e.accelerationIncludingGravity || e.acceleration;
+  if (!accel) return;
+
+  const x = accel.x || 0;
+  const y = accel.y || 0;
+  const z = accel.z || 0;
+  const magnitude = Math.sqrt(x * x + y * y + z * z);
+
+  // Update bar (cap at 3× sensitivity for visual clarity)
+  const pct = Math.min(100, (magnitude / (sensitivity * 3)) * 100);
+  motionBar.style.width = pct + '%';
+
+  // Detect strike: magnitude exceeds threshold and we are past cooldown
+  const now = Date.now();
+  if (magnitude >= sensitivity && now > cooldownUntil && motionEnabled) {
+    cooldownUntil = now + COOLDOWN_MS;
+    sendHit('motion');
+  }
+
+  lastAccelMagnitude = magnitude;
+}
+</script>
+</body>
+</html>

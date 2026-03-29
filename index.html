@@ -927,6 +927,48 @@ input[type="range"]::-webkit-slider-thumb {
 textarea.form-control.seed-invalid { border-color: var(--accent1); }
 
 /* ========================================================
+   Wireless mode
+   ======================================================== */
+.wireless-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.wireless-status-pill .ws-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+}
+.wireless-status-pill.ws-connected   { color: var(--success); border-color: rgba(0,255,136,0.3); }
+.wireless-status-pill.ws-connected .ws-dot { background: var(--success); box-shadow: 0 0 4px var(--success); }
+.wireless-status-pill.ws-connecting  { color: var(--accent3); border-color: rgba(255,204,0,0.3); }
+.wireless-status-pill.ws-connecting .ws-dot { background: var(--accent3); }
+.wireless-status-pill.ws-error       { color: var(--accent1); border-color: rgba(255,51,102,0.3); }
+.wireless-status-pill.ws-error .ws-dot { background: var(--accent1); }
+
+#match-wireless-status {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+}
+
+.wireless-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.wireless-url-row input { flex: 1; }
+
+/* ========================================================
    Responsive / large screen tweaks
    ======================================================== */
 @media (min-width: 1200px) {
@@ -1087,6 +1129,43 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
       </div>
     </div>
 
+    <!-- Wireless mode -->
+    <div class="card">
+      <h3>📡 Wireless Mode <span style="font-size:0.7rem;font-weight:400;color:var(--text-dim);vertical-align:middle;">(optional)</span></h3>
+      <p class="text-dim" style="margin-bottom:12px;font-size:0.85rem;">
+        Let phones on the same Wi-Fi network act as virtual drum sticks via accelerometer/gyro.
+        Run <code style="color:var(--accent2);">npm run wireless</code> on this computer, then open the companion URL on each phone.
+      </p>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="s-wireless-enabled" onchange="onWirelessEnabledChange(this.checked)">
+          Enable wireless mode
+        </label>
+      </div>
+      <div id="wireless-settings-body" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">WebSocket server URL</label>
+          <div class="wireless-url-row">
+            <input type="text" id="s-wireless-url" class="form-control" placeholder="ws://192.168.x.x:8765" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+            <button class="btn btn-accent2 btn-sm" onclick="testWirelessConnection()">Test</button>
+          </div>
+          <div id="wireless-test-msg" style="font-size:0.82rem;color:var(--text-dim);margin-top:4px;"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="s-wireless-autoconnect">
+            Auto-connect on startup
+          </label>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="wireless-status-pill" id="wireless-settings-status">
+            <span class="ws-dot"></span>
+            <span id="wireless-settings-status-text">Not connected</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div style="padding-bottom:20px; display:flex; gap:12px; justify-content:center;">
       <button class="btn btn-primary btn-lg" onclick="saveSettingsFromForm()">💾 Save Settings</button>
       <button class="btn btn-secondary btn-lg" onclick="showScreen('idle')">Cancel</button>
@@ -1204,6 +1283,14 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
   <!-- Abort button -->
   <button class="btn btn-secondary btn-sm" style="position:absolute;top:12px;right:12px;z-index:20;"
           onclick="abortMatch()">✕ Abort</button>
+
+  <!-- Wireless status (shown when wireless mode is active) -->
+  <div id="match-wireless-status" style="display:none;">
+    <div class="wireless-status-pill" id="match-wireless-pill">
+      <span class="ws-dot"></span>
+      <span id="match-wireless-text">📡 Wireless</span>
+    </div>
+  </div>
 </div>
 
 <!-- ============================================================
@@ -1294,6 +1381,9 @@ function loadSettings() {
     startMax: 15.0,
     idleMusicUrl: '',
     playerSeedList: '',
+    wirelessEnabled: false,
+    wirelessUrl: '',
+    wirelessAutoConnect: false,
   };
   try {
     const saved = localStorage.getItem(LS_SETTINGS);
@@ -1473,6 +1563,14 @@ function populateSettingsForm() {
   updateRangeDisplay('s-start-min', 's-start-min-val');
   updateRangeDisplay('s-start-max', 's-start-max-val');
   updateMarkPositionDisplay();
+
+  // Wireless settings
+  const wirelessEnabled = !!settings.wirelessEnabled;
+  document.getElementById('s-wireless-enabled').checked = wirelessEnabled;
+  document.getElementById('s-wireless-url').value = settings.wirelessUrl || '';
+  document.getElementById('s-wireless-autoconnect').checked = !!settings.wirelessAutoConnect;
+  document.getElementById('wireless-settings-body').style.display = wirelessEnabled ? '' : 'none';
+  updateWirelessSettingsStatus();
 
   // Restore idle music file status if a file was uploaded this session
   const idleStatusEl = document.getElementById('idle-music-status');
@@ -1938,6 +2036,9 @@ function saveSettingsFromForm() {
     startMax: parseFloat(document.getElementById('s-start-max').value) || 15,
     idleMusicUrl: document.getElementById('s-idle-music-url').value.trim(),
     playerSeedList: document.getElementById('s-player-seed').value,
+    wirelessEnabled: document.getElementById('s-wireless-enabled').checked,
+    wirelessUrl: document.getElementById('s-wireless-url').value.trim(),
+    wirelessAutoConnect: document.getElementById('s-wireless-autoconnect').checked,
   };
 
   // Validate
@@ -1948,6 +2049,8 @@ function saveSettingsFromForm() {
 
   settings = newSettings;
   saveSettings(settings);
+  // Apply wireless changes immediately
+  applyWirelessSettings();
   showScreen('idle');
 }
 
@@ -3650,6 +3753,288 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ============================================================
+   WIRELESS MODE
+   ============================================================ */
+
+let wirelessWs = null;           // active WebSocket connection
+let wirelessRttMs = 0;           // last measured round-trip time (ms)
+let wirelessPingInterval = null; // setInterval handle for ping loop
+let wirelessReconnectTimer = null; // setTimeout handle for auto-reconnect
+
+const WIRELESS_PING_INTERVAL = 2000;  // ms between pings
+const WIRELESS_RECONNECT_DELAY = 3000; // ms before auto-reconnect attempt
+
+/**
+ * Apply wireless settings: connect or disconnect as needed.
+ * Called once on init() and again whenever settings are saved.
+ */
+function applyWirelessSettings() {
+  if (settings.wirelessEnabled && settings.wirelessAutoConnect && settings.wirelessUrl) {
+    connectWireless(settings.wirelessUrl);
+  } else if (!settings.wirelessEnabled) {
+    disconnectWireless();
+  }
+  updateAllWirelessUI();
+}
+
+/**
+ * Connect to the wireless relay server at the given WebSocket URL.
+ */
+function connectWireless(url) {
+  if (!url) return;
+  // Already connected to the right URL?
+  if (wirelessWs && wirelessWs.readyState <= 1 && wirelessWs._url === url) return;
+
+  disconnectWireless(/* intentional */ true);
+
+  setWirelessStatus('connecting');
+  try {
+    wirelessWs = new WebSocket(url);
+    wirelessWs._url = url; // stash for reconnect
+  } catch (e) {
+    console.error('[Wireless] WebSocket creation failed:', e);
+    setWirelessStatus('error', 'Invalid URL');
+    return;
+  }
+
+  wirelessWs.addEventListener('open', () => {
+    console.log('[Wireless] Connected to', url);
+    setWirelessStatus('connected');
+    startWirelessPing();
+  });
+
+  wirelessWs.addEventListener('close', () => {
+    console.log('[Wireless] Connection closed');
+    stopWirelessPing();
+    setWirelessStatus('disconnected');
+    wirelessWs = null;
+    // Auto-reconnect if setting still enabled
+    if (settings.wirelessEnabled && settings.wirelessUrl) {
+      wirelessReconnectTimer = setTimeout(() => connectWireless(settings.wirelessUrl), WIRELESS_RECONNECT_DELAY);
+    }
+  });
+
+  wirelessWs.addEventListener('error', (e) => {
+    console.error('[Wireless] WebSocket error:', e);
+    setWirelessStatus('error', 'Connection error');
+  });
+
+  wirelessWs.addEventListener('message', (evt) => {
+    handleWirelessMessage(evt.data);
+  });
+}
+
+/**
+ * Cleanly disconnect and optionally cancel auto-reconnect.
+ */
+function disconnectWireless(skipReconnect) {
+  if (wirelessReconnectTimer) { clearTimeout(wirelessReconnectTimer); wirelessReconnectTimer = null; }
+  stopWirelessPing();
+  if (wirelessWs) {
+    try { wirelessWs.close(); } catch (e) { console.error('[Wireless] close error:', e); }
+    wirelessWs = null;
+  }
+  if (!skipReconnect) setWirelessStatus('disconnected');
+}
+
+/**
+ * Handle an incoming WebSocket message from the relay server.
+ */
+function handleWirelessMessage(raw) {
+  let msg;
+  try { msg = JSON.parse(raw); } catch (e) { console.error('[Wireless] Bad JSON:', e); return; }
+
+  switch (msg.type) {
+    case 'pong':
+      if (msg.clientTs) {
+        wirelessRttMs = Date.now() - msg.clientTs;
+      }
+      break;
+
+    case 'status':
+      // Server broadcast: how many clients are connected
+      setWirelessStatus('connected', `${msg.clients} client${msg.clients !== 1 ? 's' : ''} · RTT ${wirelessRttMs}ms`);
+      break;
+
+    case 'hit': {
+      // A phone companion sent a hit event
+      const player = (msg.player === 2) ? 2 : 1;
+      // Correct for network latency: use current AudioContext time minus half RTT
+      const latencyCorrection = (msg.rttMs > 0 ? msg.rttMs / 2 : wirelessRttMs / 2) / 1000;
+      onWirelessHit(player, latencyCorrection);
+      break;
+    }
+
+    default:
+      // Unknown message type – ignore
+      break;
+  }
+}
+
+/**
+ * Process a wireless hit for the given player.
+ * We subtract half the round-trip time to approximate when the hit actually happened.
+ */
+function onWirelessHit(player, latencyCorrectionSeconds) {
+  if (matchState.phase !== 'playing') return;
+  try {
+    const ctx = getAudioCtx();
+    // Back-date by latency so the timing is more accurate
+    const correctedTime = ctx.currentTime - Math.max(0, latencyCorrectionSeconds);
+    const dev = correctedTime - matchState.markContextTime;
+
+    if (player === 1 && matchState.p1HitTime === null) {
+      matchState.p1HitTime = correctedTime;
+      matchState.p1Dev = dev;
+      const devStr = formatDeviation(dev);
+      document.getElementById('match-hit-p1').textContent = '✓ HIT! ' + devStr + ' 📡';
+      document.getElementById('match-hit-p1').className = 'match-hit-status hit-done';
+      document.getElementById('match-key-p1').classList.add('pressed');
+      flashHalf('p1');
+    } else if (player === 2 && matchState.p2HitTime === null) {
+      matchState.p2HitTime = correctedTime;
+      matchState.p2Dev = dev;
+      const devStr = formatDeviation(dev);
+      document.getElementById('match-hit-p2').textContent = '✓ HIT! ' + devStr + ' 📡';
+      document.getElementById('match-hit-p2').className = 'match-hit-status hit-done';
+      document.getElementById('match-key-p2').classList.add('pressed');
+      flashHalf('p2');
+    }
+
+    if (matchState.p1HitTime !== null && matchState.p2HitTime !== null) {
+      clearMatchTimers();
+      setTimeout(() => endMatch(), 800);
+    }
+  } catch (e) {
+    console.error('[Wireless] onWirelessHit error:', e);
+  }
+}
+
+/* ── Ping / RTT ─────────────────────────────────────────────── */
+function startWirelessPing() {
+  stopWirelessPing();
+  wirelessPingInterval = setInterval(() => {
+    if (wirelessWs && wirelessWs.readyState === WebSocket.OPEN) {
+      try {
+        wirelessWs.send(JSON.stringify({ type: 'ping', clientTs: Date.now() }));
+      } catch (e) {
+        console.error('[Wireless] ping send error:', e);
+      }
+    }
+  }, WIRELESS_PING_INTERVAL);
+}
+
+function stopWirelessPing() {
+  if (wirelessPingInterval) { clearInterval(wirelessPingInterval); wirelessPingInterval = null; }
+}
+
+/* ── UI helpers ─────────────────────────────────────────────── */
+
+/**
+ * Update all wireless status widgets across every screen.
+ * @param {'connected'|'connecting'|'disconnected'|'error'} state
+ * @param {string} [detail]  extra text shown next to the status
+ */
+function setWirelessStatus(state, detail) {
+  const classMap = {
+    connected:    'ws-connected',
+    connecting:   'ws-connecting',
+    error:        'ws-error',
+    disconnected: '',
+  };
+  const labelMap = {
+    connected:    '📡 Wireless connected',
+    connecting:   '📡 Connecting…',
+    error:        '📡 Wireless error',
+    disconnected: '📡 Wireless off',
+  };
+
+  const baseClass = 'wireless-status-pill';
+  const stateClass = classMap[state] || '';
+  const label = (detail ? `${labelMap[state] || state} — ${detail}` : labelMap[state] || state);
+
+  // Match screen pill
+  const matchPill = document.getElementById('match-wireless-pill');
+  const matchText = document.getElementById('match-wireless-text');
+  const matchWrap = document.getElementById('match-wireless-status');
+  if (matchPill && matchText && matchWrap) {
+    matchPill.className = baseClass + (stateClass ? ' ' + stateClass : '');
+    matchText.textContent = label;
+    matchWrap.style.display = settings.wirelessEnabled ? '' : 'none';
+  }
+
+  // Settings screen pill
+  const settPill = document.getElementById('wireless-settings-status');
+  const settText = document.getElementById('wireless-settings-status-text');
+  if (settPill && settText) {
+    settPill.className = baseClass + (stateClass ? ' ' + stateClass : '');
+    settText.textContent = label;
+  }
+}
+
+function updateAllWirelessUI() {
+  if (wirelessWs && wirelessWs.readyState === WebSocket.OPEN) {
+    setWirelessStatus('connected');
+  } else if (wirelessWs && wirelessWs.readyState === 0) {
+    setWirelessStatus('connecting');
+  } else {
+    setWirelessStatus('disconnected');
+  }
+}
+
+/** Called when the "Enable wireless mode" checkbox changes. */
+function onWirelessEnabledChange(enabled) {
+  document.getElementById('wireless-settings-body').style.display = enabled ? '' : 'none';
+  if (!enabled) {
+    document.getElementById('wireless-test-msg').textContent = '';
+  }
+}
+
+/** Test the current URL by trying to connect (used in settings screen). */
+function testWirelessConnection() {
+  const url = document.getElementById('s-wireless-url').value.trim();
+  const msgEl = document.getElementById('wireless-test-msg');
+  if (!url) {
+    msgEl.style.color = 'var(--accent1)';
+    msgEl.textContent = 'Please enter a WebSocket URL first.';
+    return;
+  }
+  msgEl.style.color = 'var(--accent3)';
+  msgEl.textContent = 'Testing…';
+
+  let testWs;
+  try { testWs = new WebSocket(url); } catch (e) {
+    console.error('[Wireless] Test connection failed:', e);
+    msgEl.style.color = 'var(--accent1)';
+    msgEl.textContent = 'Invalid URL: ' + e.message;
+    return;
+  }
+
+  const timeout = setTimeout(() => {
+    try { testWs.close(); } catch (e) { console.error('[Wireless] test timeout close error:', e); }
+    msgEl.style.color = 'var(--accent1)';
+    msgEl.textContent = 'Connection timed out. Is the server running?';
+  }, 4000);
+
+  testWs.addEventListener('open', () => {
+    clearTimeout(timeout);
+    msgEl.style.color = 'var(--success)';
+    msgEl.textContent = '✓ Connection successful!';
+    try { testWs.close(); } catch (e) { console.error('[Wireless] test close error:', e); }
+  });
+  testWs.addEventListener('error', () => {
+    clearTimeout(timeout);
+    msgEl.style.color = 'var(--accent1)';
+    msgEl.textContent = '✗ Could not connect. Check the URL and ensure the server is running.';
+  });
+}
+
+/** Called from updateWirelessSettingsStatus (settings populate). */
+function updateWirelessSettingsStatus() {
+  updateAllWirelessUI();
+}
+
+/* ============================================================
    UTILITY
    ============================================================ */
 function formatTime(seconds) {
@@ -3709,6 +4094,9 @@ function init() {
     // Lazy load in background - just flag it
     console.log('Audio URL configured:', settings.audioUrl);
   }
+
+  // Initialise wireless mode if enabled
+  applyWirelessSettings();
 }
 
 init();

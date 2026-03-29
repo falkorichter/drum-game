@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-29
+
+### Added
+
+- **Wireless Mode** — phones on the same Wi-Fi network can act as virtual drum sticks
+  - `wireless-server.js` — optional Node.js WebSocket relay server (run with `npm run wireless`)
+  - `companion.html` — mobile-optimised phone companion page served by the relay server
+  - Accelerometer/gyro hit detection via the DeviceMotion API on the companion page (adjustable sensitivity)
+  - Manual tap button on the companion page as a fallback (or for players who prefer tapping)
+  - Supports iOS permission model for DeviceMotion (`requestPermission` API)
+  - RTT-based latency correction: the game subtracts half the measured round-trip time from each wireless hit for millisecond-accurate timing
+  - Wireless settings card in the Settings screen (enable/disable toggle, server URL, auto-connect option, live test button)
+  - Wireless status pill shown on the match screen whenever wireless mode is active
+  - Auto-reconnect with configurable delay when the server connection drops
+  - `wireless.test.html` — 35 unit tests covering latency correction, deviation computation, URL validation, and message routing
+  - `npm run wireless` script to start the relay server
+
+### Changed
+
+- Version bumped to `0.4.0` (new optional wireless feature)
+- `package.json` now lists `ws@^8.18.0` as a runtime dependency (needed only for `npm run wireless`)
+
+## [0.3.1] - 2026-03-29
+
 ### Added
 
 - SVG connector lines between bracket matches showing which two matches feed into the next round
@@ -59,7 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Song validation ([PR #7](https://github.com/falkorichter/drum-game/pull/7))
 - `bracket.test.html` — unit tests for bracket logic
 
-[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/falkorichter/drum-game/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/falkorichter/drum-game/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/falkorichter/drum-game/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/falkorichter/drum-game/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/falkorichter/drum-game/releases/tag/v0.1.0
