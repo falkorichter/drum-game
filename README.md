@@ -157,7 +157,7 @@ Tests are also executed automatically on every push and pull request via [GitHub
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3.1 |
+| Version | 0.3.2 |
 | License | MIT |
 | Node.js | ≥ 18 (for tests only) |
 | CI | GitHub Actions (`tests.yml`) |

@@ -683,6 +683,32 @@ input[type="range"]::-webkit-slider-thumb {
 .match-key-badge-p1.pressed { box-shadow: 0 0 60px rgba(255,51,102,0.8); }
 .match-key-badge-p2.pressed { box-shadow: 0 0 60px rgba(0,212,255,0.8); }
 
+/* Touch mode: make halves act as large tap buttons */
+.match-half.touch-tappable {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.match-half.touch-tappable:active {
+  filter: brightness(1.4);
+}
+
+/* Touch mode badge in bracket header */
+.touch-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent3);
+  background: rgba(0,212,255,0.1);
+  border: 1px solid rgba(0,212,255,0.35);
+  border-radius: 12px;
+  padding: 2px 8px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
 .match-player-name {
   font-size: clamp(1.2rem, 3vw, 2.5rem);
   font-weight: 800;
@@ -926,6 +952,25 @@ input[type="range"]::-webkit-slider-thumb {
 }
 textarea.form-control.seed-invalid { border-color: var(--accent1); }
 
+/* Touch-mode toggle row in settings */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.toggle-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle-row label {
+  cursor: pointer;
+  font-size: 1rem;
+  user-select: none;
+}
+
 /* ========================================================
    Responsive / large screen tweaks
    ======================================================== */
@@ -1075,6 +1120,16 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
       </div>
     </div>
 
+    <!-- Touch mode -->
+    <div class="card">
+      <h3>👆 Touch Mode</h3>
+      <p class="text-dim" style="margin-bottom:12px;font-size:0.85rem;">When enabled, each player's half of the match screen becomes a large tap area instead of requiring keyboard keys. Auto-detected on touch-screen devices.</p>
+      <div class="toggle-row">
+        <input type="checkbox" id="s-touch-mode">
+        <label for="s-touch-mode">Enable Touch Mode</label>
+      </div>
+    </div>
+
     <!-- Player seed list -->
     <div class="card">
       <h3>👥 Player Seed List</h3>
@@ -1149,6 +1204,7 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
     <div>
       <div id="bracket-title" style="font-size:1.2rem;font-weight:800;">🏆 Tournament</div>
       <div id="bracket-round-info" class="text-dim" style="font-size:0.85rem;"></div>
+      <span id="touch-mode-badge" class="touch-mode-badge" style="display:none;">👆 Touch Mode</span>
     </div>
     <div class="flex-row">
       <button class="btn btn-secondary btn-sm" onclick="exportTournamentJSON()" title="Download tournament as JSON">📤 Export JSON</button>
@@ -1294,6 +1350,7 @@ function loadSettings() {
     startMax: 15.0,
     idleMusicUrl: '',
     playerSeedList: '',
+    touchMode: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0),
   };
   try {
     const saved = localStorage.getItem(LS_SETTINGS);
@@ -1469,6 +1526,7 @@ function populateSettingsForm() {
   document.getElementById('s-start-max').value = settings.startMax || 15;
   document.getElementById('s-idle-music-url').value = settings.idleMusicUrl || '';
   document.getElementById('s-player-seed').value = settings.playerSeedList || '';
+  document.getElementById('s-touch-mode').checked = settings.touchMode ?? false;
   validatePlayerSeed();
   updateRangeDisplay('s-start-min', 's-start-min-val');
   updateRangeDisplay('s-start-max', 's-start-max-val');
@@ -1938,6 +1996,7 @@ function saveSettingsFromForm() {
     startMax: parseFloat(document.getElementById('s-start-max').value) || 15,
     idleMusicUrl: document.getElementById('s-idle-music-url').value.trim(),
     playerSeedList: document.getElementById('s-player-seed').value,
+    touchMode: document.getElementById('s-touch-mode').checked,
   };
 
   // Validate
@@ -2193,6 +2252,10 @@ function renderBracket() {
 
   document.getElementById('bracket-title').textContent =
     '🏆 ' + (settings.tournamentName || 'Tournament');
+
+  // Show touch mode badge if enabled
+  const touchBadge = document.getElementById('touch-mode-badge');
+  if (touchBadge) touchBadge.style.display = settings.touchMode ? '' : 'none';
 
   const current = findCurrentMatch(tournament);
   const winner = getTournamentWinner(tournament);
@@ -2933,7 +2996,29 @@ function startSpecificMatch(roundIdx, matchIdx) {
   document.getElementById('match-progress-bar').style.width = '0';
   document.getElementById('countdown-display').innerHTML = '';
   document.getElementById('match-vs-text').style.display = 'block';
-  document.getElementById('match-status-text').textContent = 'Press SPACE or any key to start';
+
+  // Configure touch mode vs keyboard mode
+  const halfP1 = document.getElementById('match-half-p1');
+  const halfP2 = document.getElementById('match-half-p2');
+  const keyP1 = document.getElementById('match-key-p1');
+  const keyP2 = document.getElementById('match-key-p2');
+  if (settings.touchMode) {
+    keyP1.textContent = '👆';
+    keyP2.textContent = '👆';
+    halfP1.classList.add('touch-tappable');
+    halfP2.classList.add('touch-tappable');
+    halfP1.onclick = onTapHalfP1;
+    halfP2.onclick = onTapHalfP2;
+    document.getElementById('match-status-text').textContent = 'Tap your side to start';
+  } else {
+    keyP1.textContent = KEY_P1.toUpperCase();
+    keyP2.textContent = KEY_P2.toUpperCase();
+    halfP1.classList.remove('touch-tappable');
+    halfP2.classList.remove('touch-tappable');
+    halfP1.onclick = null;
+    halfP2.onclick = null;
+    document.getElementById('match-status-text').textContent = 'Press SPACE or any key to start';
+  }
 
   showScreen('match');
 
@@ -3083,6 +3168,9 @@ function clearMatchTimers() {
     matchState.progressInterval = null;
   }
 }
+
+function onTapHalfP1() { if (matchState.phase === 'playing') onPlayerHit(1); }
+function onTapHalfP2() { if (matchState.phase === 'playing') onPlayerHit(2); }
 
 function onPlayerHit(player) {
   if (matchState.phase !== 'playing') return;

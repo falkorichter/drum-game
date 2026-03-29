@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unit tests for bracket feeder index mapping and expected connector line counts
 - Hint message for disabled "Start Match" button on bracket screen
 - Console error logging for all error handlers
+- **Touch Mode** setting: toggleable in Settings, auto-detected on touch-screen devices on first load
+- Match screen halves become large tap areas in touch mode, showing a 👆 icon instead of the keyboard key label
+- Bracket/tournament header shows a "👆 Touch Mode" badge when touch mode is enabled
 
 ### Changed
 
