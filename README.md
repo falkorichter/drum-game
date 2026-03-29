@@ -67,6 +67,12 @@ A competitive 2-player rhythm tournament game built as a single static HTML/JS p
 - **Sticky round titles** — round labels (Round 1, Quarter-Final, etc.) stay visible at the top when scrolling vertically, maintaining context for large tournaments.
 - **Champion connector** — a line connects the final match to the champion column when a winner is decided.
 
+### Export / Import ([PR #17](https://github.com/falkorichter/drum-game/pull/17))
+
+- **JSON export** — download the full tournament state (bracket, results, settings) as a portable `.json` file from the bracket screen.
+- **JSON import** — load a previously exported tournament from a `.json` file on the tournament setup screen. Includes validation and error feedback.
+- **ASCII bracket export** — copy a text representation of the bracket to the clipboard (or download as `.txt`) for sharing in chats, emails, or documentation.
+
 ### Visual Design
 
 - **Projector-friendly** dark theme with animated title, floating particle background, and confetti on champion reveal
@@ -131,13 +137,18 @@ Open `index.html` in any modern browser — no build step or server required.
 
 Open `bracket.test.html` in a browser to run the bracket logic unit tests.
 
+Open `export.test.html` in a browser to run the export/import unit tests.
+
 ---
 
 ## Development Metadata
 
-- **Version**: 0.5.0
-- **AI/LLM tools used**: GitHub Copilot Coding Agent (Claude) — used for implementing bracket connector lines, layout spacing, sticky round titles, tests, and documentation.
-- **Versioning**: [Semantic Versioning 2.0.0](https://semver.org/)
+| Field | Value |
+|-------|-------|
+| Version | 0.3.0 |
+| License | MIT |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+| AI/LLM tools | GitHub Copilot Coding Agent (Claude Sonnet) |
 
 ### Contributing
 

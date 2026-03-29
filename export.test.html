@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Export / Import — Unit Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #eee; }
+  .pass { color: #0f0; } .fail { color: #f33; font-weight: bold; }
+  .section { margin: 16px 0 4px; font-weight: bold; color: #ffcc00; }
+  #summary { margin-top: 20px; font-size: 1.2em; padding: 10px; border-top: 2px solid #555; }
+</style>
+</head>
+<body>
+<h1>📤 Export / Import — Unit Tests</h1>
+<div id="output"></div>
+<div id="summary"></div>
+<script>
+/* === Bracket functions (duplicated from index.html, same as bracket.test.html) === */
+
+function nextPow2(n) {
+  let p = 1;
+  while (p < n) p *= 2;
+  return p;
+}
+
+function createBracket(players) {
+  const size = nextPow2(players.length);
+  const padded = [...players];
+  while (padded.length < size) padded.push(null);
+
+  const firstRound = [];
+  for (let i = 0; i < padded.length; i += 2) {
+    const p1 = padded[i], p2 = padded[i + 1];
+    const match = { p1, p2, winner: null, isBye: false };
+    if (p1 === null && p2 === null) { match.winner = null; match.isBye = true; }
+    else if (p1 === null)           { match.winner = p2;   match.isBye = true; }
+    else if (p2 === null)           { match.winner = p1;   match.isBye = true; }
+    firstRound.push(match);
+  }
+
+  const rounds = [firstRound];
+  let prev = firstRound;
+  while (prev.length > 1) {
+    const next = [];
+    for (let i = 0; i < prev.length; i += 2) {
+      next.push({ p1: null, p2: null, winner: null, isBye: false });
+    }
+    rounds.push(next);
+    prev = next;
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let r = 0; r < rounds.length - 1; r++) {
+      for (let m = 0; m < rounds[r].length; m++) {
+        const match = rounds[r][m];
+        if (!match.isBye) continue;
+        const nextIdx = Math.floor(m / 2);
+        const slot    = m % 2 === 0 ? 'p1' : 'p2';
+        const nm      = rounds[r + 1][nextIdx];
+        if (nm[slot] !== match.winner) {
+          nm[slot] = match.winner;
+          changed = true;
+        }
+        if (match.winner === null) {
+          nm[slot + 'NullBye'] = true;
+        }
+        if (!nm.isBye && !nm.winner) {
+          if (nm.p1 !== null && nm.p2 === null && nm.p2NullBye) {
+            nm.winner = nm.p1; nm.isBye = true; changed = true;
+          } else if (nm.p2 !== null && nm.p1 === null && nm.p1NullBye) {
+            nm.winner = nm.p2; nm.isBye = true; changed = true;
+          } else if (nm.p1 === null && nm.p2 === null && nm.p1NullBye && nm.p2NullBye) {
+            nm.winner = null; nm.isBye = true; changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return { players, rounds };
+}
+
+function propagateWinner(t, roundIdx, matchIdx, winner) {
+  if (roundIdx + 1 >= t.rounds.length) return;
+  const nextMatchIdx = Math.floor(matchIdx / 2);
+  const isP1 = (matchIdx % 2 === 0);
+  const nextMatch = t.rounds[roundIdx + 1][nextMatchIdx];
+  if (isP1) nextMatch.p1 = winner;
+  else nextMatch.p2 = winner;
+  if (!nextMatch.isBye) {
+    if (nextMatch.p1 === null && nextMatch.p2 !== null && nextMatch.p1NullBye) {
+      nextMatch.winner = nextMatch.p2;
+      nextMatch.isBye = true;
+      propagateWinner(t, roundIdx + 1, nextMatchIdx, nextMatch.winner);
+    } else if (nextMatch.p2 === null && nextMatch.p1 !== null && nextMatch.p2NullBye) {
+      nextMatch.winner = nextMatch.p1;
+      nextMatch.isBye = true;
+      propagateWinner(t, roundIdx + 1, nextMatchIdx, nextMatch.winner);
+    }
+  }
+}
+
+function getTournamentWinner(t) {
+  if (!t) return null;
+  const lastRound = t.rounds[t.rounds.length - 1];
+  if (lastRound && lastRound[0] && lastRound[0].winner) return lastRound[0].winner;
+  return null;
+}
+
+function isFinalMatch(t, roundIdx) {
+  return roundIdx === t.rounds.length - 1;
+}
+
+function getRoundNames(totalRounds) {
+  const names = [];
+  for (let i = 0; i < totalRounds; i++) {
+    const remaining = totalRounds - i;
+    if (remaining === 1) names.push('Final');
+    else if (remaining === 2) names.push('Semi-Final');
+    else if (remaining === 3) names.push('Quarter-Final');
+    else names.push(`Round ${i + 1}`);
+  }
+  return names;
+}
+
+function formatDeviation(dev) {
+  if (dev === null || dev === undefined) return '--';
+  const ms = Math.round(dev * 1000);
+  const sign = ms >= 0 ? '+' : '';
+  return `${sign}${ms}ms`;
+}
+
+/* === Export / Import functions (duplicated from index.html) === */
+
+function buildExportData(t, s) {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: {
+      tournamentName: s.tournamentName || 'Beat Challenge',
+      markPosition: s.markPosition,
+      startMin: s.startMin,
+      startMax: s.startMax,
+    },
+    tournament: t,
+  };
+}
+
+function validateImportData(obj) {
+  if (!obj || typeof obj !== 'object') {
+    return { ok: false, error: 'File does not contain a valid JSON object.' };
+  }
+  if (!obj.tournament || typeof obj.tournament !== 'object') {
+    return { ok: false, error: 'Missing "tournament" field in JSON.' };
+  }
+  const t = obj.tournament;
+  if (!Array.isArray(t.players) || t.players.length < 2) {
+    return { ok: false, error: 'Tournament must have at least 2 players.' };
+  }
+  if (!Array.isArray(t.rounds) || t.rounds.length === 0) {
+    return { ok: false, error: 'Tournament must have at least 1 round.' };
+  }
+  for (let r = 0; r < t.rounds.length; r++) {
+    if (!Array.isArray(t.rounds[r])) {
+      return { ok: false, error: `Round ${r} is not an array.` };
+    }
+    for (let m = 0; m < t.rounds[r].length; m++) {
+      const match = t.rounds[r][m];
+      if (!match || typeof match !== 'object') {
+        return { ok: false, error: `Match ${m} in round ${r} is not a valid object.` };
+      }
+    }
+  }
+  return { ok: true, data: obj };
+}
+
+function generateBracketASCII(t, settingsOverride) {
+  if (!t || !t.rounds) return '';
+
+  const s = settingsOverride || { tournamentName: 'Tournament' };
+  const roundNames = getRoundNames(t.rounds.length);
+  const winner = getTournamentWinner(t);
+
+  const columns = [];
+  t.rounds.forEach((round, rIdx) => {
+    const lines = [];
+    lines.push(roundNames[rIdx]);
+    lines.push('─'.repeat(roundNames[rIdx].length));
+
+    let visibleIdx = 0;
+    round.forEach(match => {
+      if (match.isBye && !match.p1 && !match.p2) return;
+      visibleIdx++;
+      const p1 = match.p1 || 'TBD';
+      const p2 = match.p2 || 'TBD';
+      const p1Mark = match.winner === match.p1 && match.p1 ? '🏆' : '  ';
+      const p2Mark = match.winner === match.p2 && match.p2 ? '🏆' : '  ';
+      const p1Dev = (match.p1Dev !== null && match.p1Dev !== undefined) ? ` (${formatDeviation(match.p1Dev)})` : '';
+      const p2Dev = (match.p2Dev !== null && match.p2Dev !== undefined) ? ` (${formatDeviation(match.p2Dev)})` : '';
+
+      lines.push('');
+      lines.push(`  Match ${visibleIdx}:`);
+      lines.push(`    ${p1Mark} ${p1}${p1Dev}`);
+      lines.push(`       vs`);
+      lines.push(`    ${p2Mark} ${p2}${p2Dev}`);
+
+      if (isFinalMatch(t, rIdx) && match.finalGames && match.finalGames.length > 0) {
+        const s1 = match.finalScoreP1 || 0;
+        const s2 = match.finalScoreP2 || 0;
+        lines.push(`    (Best of 3: ${s1} – ${s2})`);
+      }
+    });
+    columns.push(lines);
+  });
+
+  if (winner) {
+    columns.push(['🏆 Champion', '───────────', '', `  ${winner}`]);
+  }
+
+  const maxHeight = Math.max(...columns.map(c => c.length));
+  columns.forEach(col => {
+    while (col.length < maxHeight) col.push('');
+  });
+
+  const colWidths = columns.map(col => Math.max(...col.map(line => line.length)) + 2);
+
+  const outputLines = [];
+  for (let row = 0; row < maxHeight; row++) {
+    const parts = columns.map((col, cIdx) => {
+      const text = col[row] || '';
+      return text.padEnd(colWidths[cIdx]);
+    });
+    outputLines.push(parts.join('│ '));
+  }
+
+  const title = s.tournamentName || 'Tournament';
+  const header = `${title} — ${t.players.length} players`;
+  return header + '\n' + '═'.repeat(header.length) + '\n\n' + outputLines.join('\n') + '\n';
+}
+
+/* === Test framework === */
+let passed = 0, failed = 0;
+const out = document.getElementById('output');
+
+function section(name) {
+  const el = document.createElement('div');
+  el.className = 'section';
+  el.textContent = '▸ ' + name;
+  out.appendChild(el);
+}
+
+function assert(ok, desc) {
+  const el = document.createElement('div');
+  if (ok) { el.className = 'pass'; el.textContent = '  ✓ ' + desc; passed++; }
+  else    { el.className = 'fail'; el.textContent = '  ✗ ' + desc; failed++; }
+  out.appendChild(el);
+}
+
+function eq(a, b, desc) { assert(a === b, `${desc} — expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); }
+
+/* === Helpers === */
+function names(n) { return Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)); }
+
+/* ============================================================
+   TESTS
+   ============================================================ */
+
+// ─── buildExportData ───
+section('buildExportData');
+(function() {
+  const t = createBracket(names(4));
+  const s = { tournamentName: 'Test Cup', markPosition: 30, startMin: 5, startMax: 15 };
+  const data = buildExportData(t, s);
+
+  eq(data.version, 1, 'version is 1');
+  assert(typeof data.exportedAt === 'string', 'exportedAt is a string');
+  assert(data.exportedAt.length > 0, 'exportedAt is not empty');
+  eq(data.settings.tournamentName, 'Test Cup', 'settings.tournamentName preserved');
+  eq(data.settings.markPosition, 30, 'settings.markPosition preserved');
+  eq(data.settings.startMin, 5, 'settings.startMin preserved');
+  eq(data.settings.startMax, 15, 'settings.startMax preserved');
+  assert(data.tournament === t, 'tournament object is included');
+  assert(Array.isArray(data.tournament.players), 'tournament has players');
+  eq(data.tournament.players.length, 4, '4 players');
+})();
+
+// ─── buildExportData defaults ───
+section('buildExportData defaults');
+(function() {
+  const t = createBracket(names(2));
+  const s = {};
+  const data = buildExportData(t, s);
+  eq(data.settings.tournamentName, 'Beat Challenge', 'default tournament name is Beat Challenge');
+})();
+
+// ─── validateImportData — valid ───
+section('validateImportData — valid');
+(function() {
+  const t = createBracket(names(4));
+  const s = { tournamentName: 'Cup', markPosition: 30, startMin: 5, startMax: 15 };
+  const data = buildExportData(t, s);
+
+  const result = validateImportData(data);
+  assert(result.ok, 'valid export data passes validation');
+  assert(result.data !== undefined, 'data is returned');
+  eq(result.data.version, 1, 'version preserved');
+})();
+
+// ─── validateImportData — invalid inputs ───
+section('validateImportData — invalid inputs');
+(function() {
+  let r;
+
+  r = validateImportData(null);
+  assert(!r.ok, 'null is invalid');
+  assert(r.error.length > 0, 'null has error message');
+
+  r = validateImportData('hello');
+  assert(!r.ok, 'string is invalid');
+
+  r = validateImportData(42);
+  assert(!r.ok, 'number is invalid');
+
+  r = validateImportData({});
+  assert(!r.ok, 'empty object is invalid (no tournament)');
+
+  r = validateImportData({ tournament: {} });
+  assert(!r.ok, 'tournament without players is invalid');
+
+  r = validateImportData({ tournament: { players: ['A'], rounds: [] } });
+  assert(!r.ok, 'tournament with 1 player is invalid');
+
+  r = validateImportData({ tournament: { players: ['A', 'B'], rounds: [] } });
+  assert(!r.ok, 'tournament with 0 rounds is invalid');
+
+  r = validateImportData({ tournament: { players: ['A', 'B'], rounds: ['not-an-array'] } });
+  assert(!r.ok, 'round that is not an array is invalid');
+
+  r = validateImportData({ tournament: { players: ['A', 'B'], rounds: [[null]] } });
+  assert(!r.ok, 'match that is null is invalid');
+
+  r = validateImportData({ tournament: { players: ['A', 'B'], rounds: [['string']] } });
+  assert(!r.ok, 'match that is a string is invalid');
+})();
+
+// ─── validateImportData — minimal valid ───
+section('validateImportData — minimal valid');
+(function() {
+  const minimal = {
+    tournament: {
+      players: ['A', 'B'],
+      rounds: [[{ p1: 'A', p2: 'B', winner: null, isBye: false }]]
+    }
+  };
+  const r = validateImportData(minimal);
+  assert(r.ok, 'minimal 2-player tournament is valid');
+})();
+
+// ─── JSON roundtrip ───
+section('JSON roundtrip');
+(function() {
+  const t = createBracket(names(8));
+  // Play some matches
+  t.rounds[0][0].winner = 'A'; t.rounds[0][0].p1Dev = -0.012; t.rounds[0][0].p2Dev = 0.045;
+  propagateWinner(t, 0, 0, 'A');
+  t.rounds[0][1].winner = 'C'; t.rounds[0][1].p1Dev = 0.030; t.rounds[0][1].p2Dev = -0.015;
+  propagateWinner(t, 0, 1, 'C');
+
+  const s = { tournamentName: 'Roundtrip Test', markPosition: 25.5, startMin: 3, startMax: 10 };
+  const exported = buildExportData(t, s);
+  const json = JSON.stringify(exported);
+  const imported = JSON.parse(json);
+
+  const result = validateImportData(imported);
+  assert(result.ok, 'roundtrip JSON is valid');
+
+  const tImported = result.data.tournament;
+  eq(tImported.players.length, 8, '8 players preserved');
+  eq(tImported.rounds.length, t.rounds.length, 'round count preserved');
+  eq(tImported.rounds[0][0].winner, 'A', 'match 0 winner preserved');
+  eq(tImported.rounds[0][0].p1Dev, -0.012, 'match 0 p1Dev preserved');
+  eq(tImported.rounds[0][1].winner, 'C', 'match 1 winner preserved');
+  eq(tImported.rounds[1][0].p1, 'A', 'round 2 propagation preserved');
+
+  eq(result.data.settings.tournamentName, 'Roundtrip Test', 'settings.tournamentName roundtrip');
+  eq(result.data.settings.markPosition, 25.5, 'settings.markPosition roundtrip');
+})();
+
+// ─── JSON roundtrip with best-of-three final ───
+section('JSON roundtrip with best-of-three final');
+(function() {
+  const t = createBracket(names(4));
+  t.rounds[0][0].winner = 'A'; propagateWinner(t, 0, 0, 'A');
+  t.rounds[0][1].winner = 'C'; propagateWinner(t, 0, 1, 'C');
+
+  const final = t.rounds[1][0];
+  final.finalGames = [
+    { winner: 'A', p1Dev: -0.01, p2Dev: 0.05 },
+    { winner: 'C', p1Dev: 0.08, p2Dev: -0.02 },
+    { winner: 'A', p1Dev: -0.005, p2Dev: 0.03 }
+  ];
+  final.finalScoreP1 = 2;
+  final.finalScoreP2 = 1;
+  final.winner = 'A';
+
+  const s = { tournamentName: 'BO3 Test' };
+  const json = JSON.stringify(buildExportData(t, s));
+  const imported = JSON.parse(json);
+  const result = validateImportData(imported);
+  assert(result.ok, 'BO3 roundtrip is valid');
+
+  const fImported = result.data.tournament.rounds[1][0];
+  eq(fImported.finalGames.length, 3, '3 final games preserved');
+  eq(fImported.finalScoreP1, 2, 'final score P1 preserved');
+  eq(fImported.finalScoreP2, 1, 'final score P2 preserved');
+  eq(fImported.winner, 'A', 'final winner preserved');
+  eq(getTournamentWinner(result.data.tournament), 'A', 'tournament winner from imported data');
+})();
+
+// ─── generateBracketASCII — basic structure ───
+section('generateBracketASCII — basic structure');
+(function() {
+  const t = createBracket(names(4)); // A B C D — 2 rounds
+  const s = { tournamentName: 'ASCII Test' };
+  const text = generateBracketASCII(t, s);
+
+  assert(text.length > 0, 'output is not empty');
+  assert(text.includes('ASCII Test'), 'contains tournament name');
+  assert(text.includes('4 players'), 'contains player count');
+  assert(text.includes('Semi-Final'), 'contains Semi-Final round name');
+  assert(text.includes('Final'), 'contains Final round name');
+  assert(text.includes('A'), 'contains player A');
+  assert(text.includes('B'), 'contains player B');
+  assert(text.includes('C'), 'contains player C');
+  assert(text.includes('D'), 'contains player D');
+  assert(text.includes('vs'), 'contains vs separator');
+  assert(text.includes('Match 1'), 'contains Match 1');
+})();
+
+// ─── generateBracketASCII — with results ───
+section('generateBracketASCII — with results');
+(function() {
+  const t = createBracket(names(4));
+  t.rounds[0][0].winner = 'A'; t.rounds[0][0].p1Dev = -0.012; t.rounds[0][0].p2Dev = 0.050;
+  propagateWinner(t, 0, 0, 'A');
+
+  const s = { tournamentName: 'Results Test' };
+  const text = generateBracketASCII(t, s);
+
+  assert(text.includes('🏆'), 'contains winner trophy');
+  assert(text.includes('-12ms'), 'contains p1 deviation');
+  assert(text.includes('+50ms'), 'contains p2 deviation');
+})();
+
+// ─── generateBracketASCII — completed tournament ───
+section('generateBracketASCII — completed tournament');
+(function() {
+  const t = createBracket(names(4));
+  t.rounds[0][0].winner = 'A'; propagateWinner(t, 0, 0, 'A');
+  t.rounds[0][1].winner = 'C'; propagateWinner(t, 0, 1, 'C');
+  t.rounds[1][0].winner = 'A';
+
+  const s = { tournamentName: 'Complete' };
+  const text = generateBracketASCII(t, s);
+
+  assert(text.includes('Champion'), 'contains Champion column');
+  // The champion name should appear in the Champion column
+  const lines = text.split('\n');
+  const championLine = lines.find(l => l.includes('Champion'));
+  assert(championLine !== undefined, 'Champion header line exists');
+})();
+
+// ─── generateBracketASCII — 3 players (with byes) ───
+section('generateBracketASCII — 3 players with byes');
+(function() {
+  const t = createBracket(names(3)); // A B C — padded to 4
+  const s = { tournamentName: 'Bye Test' };
+  const text = generateBracketASCII(t, s);
+
+  assert(text.includes('A'), 'contains player A');
+  assert(text.includes('B'), 'contains player B');
+  assert(text.includes('C'), 'contains player C');
+  // Byes should show up but padding byes (null-null) should be hidden
+  assert(text.includes('Match 1'), 'contains at least Match 1');
+})();
+
+// ─── generateBracketASCII — 2 players ───
+section('generateBracketASCII — 2 players');
+(function() {
+  const t = createBracket(names(2));
+  const s = { tournamentName: 'Duel' };
+  const text = generateBracketASCII(t, s);
+
+  assert(text.includes('Duel — 2 players'), 'header shows 2 players');
+  assert(text.includes('Final'), 'contains Final');
+  assert(text.includes('A'), 'contains player A');
+  assert(text.includes('B'), 'contains player B');
+})();
+
+// ─── generateBracketASCII — BO3 final ───
+section('generateBracketASCII — BO3 final');
+(function() {
+  const t = createBracket(names(4));
+  t.rounds[0][0].winner = 'A'; propagateWinner(t, 0, 0, 'A');
+  t.rounds[0][1].winner = 'C'; propagateWinner(t, 0, 1, 'C');
+
+  const final = t.rounds[1][0];
+  final.finalGames = [
+    { winner: 'A', p1Dev: -0.01, p2Dev: 0.05 },
+    { winner: 'C', p1Dev: 0.08, p2Dev: -0.02 }
+  ];
+  final.finalScoreP1 = 1;
+  final.finalScoreP2 = 1;
+
+  const s = { tournamentName: 'BO3 Text' };
+  const text = generateBracketASCII(t, s);
+
+  assert(text.includes('Best of 3'), 'contains Best of 3');
+  assert(text.includes('1 – 1'), 'contains score 1 – 1');
+})();
+
+// ─── generateBracketASCII — empty/null tournament ───
+section('generateBracketASCII — edge cases');
+(function() {
+  eq(generateBracketASCII(null), '', 'null tournament returns empty string');
+  eq(generateBracketASCII(undefined), '', 'undefined tournament returns empty string');
+  eq(generateBracketASCII({}), '', 'empty object returns empty string');
+})();
+
+/* === Summary === */
+const sumEl = document.getElementById('summary');
+if (failed === 0) {
+  sumEl.innerHTML = `<span class="pass">All ${passed} tests passed ✓</span>`;
+} else {
+  sumEl.innerHTML = `<span class="fail">${failed} FAILED</span> / ${passed + failed} total`;
+}
+</script>
+</body>
+</html>

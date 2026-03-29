@@ -1,0 +1,12 @@
+{
+  "name": "drum-game",
+  "version": "0.3.0",
+  "description": "A competitive 2-player rhythm tournament game — Beat Challenge",
+  "private": true,
+  "homepage": "https://falkorichter.github.io/drum-game/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/falkorichter/drum-game"
+  },
+  "license": "MIT"
+}
