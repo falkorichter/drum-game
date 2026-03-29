@@ -138,7 +138,7 @@ Open `export.test.html` in a browser to run the export/import unit tests.
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2.0 |
+| Version | 0.3.0 |
 | License | MIT |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | AI/LLM tools | GitHub Copilot Coding Agent (Claude Sonnet) |

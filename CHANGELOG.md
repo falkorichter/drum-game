@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Hint message for disabled "Start Match" button on bracket screen
+- Console error logging for all error handlers
+- `.gitignore` file
+
+### Changed
+- Disabled buttons now show explanatory hints instead of silently blocking interaction
+
+### Fixed
+- Silent error swallowing in try/catch blocks now logs to console for debugging
+
 ## [0.2.0] - 2026-03-29
 
 ### Added
