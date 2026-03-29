@@ -2491,7 +2491,7 @@ function exportTournamentJSON() {
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const name = (settings.tournamentName || 'tournament').replace(/[^a-z0-9_-]/gi, '_');
+    const name = (settings.tournamentName || 'tournament').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
     a.href = url;
     a.download = `${name}_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
@@ -2562,9 +2562,10 @@ function handleTournamentImport(event) {
  * Generate an ASCII text representation of the tournament bracket.
  * Returns a string.
  */
-function generateBracketASCII(t) {
+function generateBracketASCII(t, tournamentSettings) {
   if (!t || !t.rounds) return '';
 
+  const s = tournamentSettings || (typeof settings !== 'undefined' ? settings : {});
   const roundNames = getRoundNames(t.rounds.length);
   const winner = getTournamentWinner(t);
 
@@ -2583,8 +2584,8 @@ function generateBracketASCII(t) {
       const p2 = match.p2 || 'TBD';
       const p1Mark = match.winner === match.p1 && match.p1 ? '🏆' : '  ';
       const p2Mark = match.winner === match.p2 && match.p2 ? '🏆' : '  ';
-      const p1Dev = (match.p1Dev !== null && match.p1Dev !== undefined) ? ` (${formatDeviation(match.p1Dev)})` : '';
-      const p2Dev = (match.p2Dev !== null && match.p2Dev !== undefined) ? ` (${formatDeviation(match.p2Dev)})` : '';
+      const p1Dev = match.p1Dev != null ? ` (${formatDeviation(match.p1Dev)})` : '';
+      const p2Dev = match.p2Dev != null ? ` (${formatDeviation(match.p2Dev)})` : '';
 
       lines.push('');
       lines.push(`  Match ${visibleIdx}:`);
@@ -2627,7 +2628,7 @@ function generateBracketASCII(t) {
     outputLines.push(parts.join('│ '));
   }
 
-  const title = settings.tournamentName || 'Tournament';
+  const title = s.tournamentName || 'Tournament';
   const header = `${title} — ${t.players.length} players`;
   return header + '\n' + '═'.repeat(header.length) + '\n\n' + outputLines.join('\n') + '\n';
 }
