@@ -6,6 +6,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const testFiles = process.argv.slice(2).length
   ? process.argv.slice(2)
@@ -78,22 +79,30 @@ for (const file of testFiles) {
     } else {
       console.log('\\n❌  ' + failed + ' FAILED / ' + (passed + failed) + ' total');
     }
-    // Expose counts for the runner
-    global.__testPassed = passed;
-    global.__testFailed = failed;
+    __results.passed = passed;
+    __results.failed = failed;
     `
   );
 
   try {
-    // Reset counters
-    global.__testPassed = 0;
-    global.__testFailed = 0;
+    const results = { passed: 0, failed: 0 };
+    const context = vm.createContext({
+      console,
+      JSON,
+      Array,
+      Object,
+      Set,
+      Map,
+      Math,
+      String,
+      Number,
+      __results: results
+    });
 
-    // Run
-    eval(script);
+    vm.runInContext(script, context, { filename: file });
 
-    totalPassed += global.__testPassed;
-    totalFailed += global.__testFailed;
+    totalPassed += results.passed;
+    totalFailed += results.failed;
   } catch (err) {
     console.error(`  Runtime error in ${file}:`, err.message);
     totalFailed++;
