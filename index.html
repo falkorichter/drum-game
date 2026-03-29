@@ -107,7 +107,7 @@ p  { color: var(--text-dim); line-height: 1.5; }
   z-index: 1;
 }
 .btn:active { transform: scale(0.96) !important; }
-.btn:disabled { opacity: 0.4; pointer-events: none; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--accent1), #cc0044);
@@ -1129,6 +1129,7 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
   </div>
   <div class="bracket-footer">
     <button class="btn btn-primary btn-lg" id="bracket-start-btn" onclick="startCurrentMatch()">⚡ Start Match</button>
+    <div id="bracket-start-hint" style="color:#ff9800; font-size:0.9rem; text-align:center;"></div>
     <button class="btn btn-secondary btn-sm" id="bracket-replay-btn" style="display:none;" onclick="replayTournament()">🔄 Replay Tournament</button>
     <button class="btn btn-secondary btn-sm" onclick="showScreen('idle')">🏠 Home</button>
   </div>
@@ -1263,7 +1264,7 @@ function loadSettings() {
   try {
     const saved = localStorage.getItem(LS_SETTINGS);
     return saved ? { ...defaults, ...JSON.parse(saved) } : { ...defaults };
-  } catch (_) { return defaults; }
+  } catch (e) { console.error('Failed to load settings from localStorage:', e); return defaults; }
 }
 
 function saveSettings(s) {
@@ -1274,7 +1275,7 @@ function loadTournament() {
   try {
     const saved = localStorage.getItem(LS_TOURNAMENT);
     return saved ? JSON.parse(saved) : null;
-  } catch (_) { return null; }
+  } catch (e) { console.error('Failed to load tournament from localStorage:', e); return null; }
 }
 
 function saveTournament(t) {
@@ -1359,7 +1360,7 @@ function startIdleMusic() {
   idleAudioEl = new Audio(src);
   idleAudioEl.loop = true;
   idleAudioEl.volume = 0.4;
-  idleAudioEl.play().catch(() => {});
+  idleAudioEl.play().catch(e => console.error('Failed to play idle music:', e));
 }
 
 function stopIdleMusic() {
@@ -1415,7 +1416,7 @@ function stopPreview() {
     previewAudioEl = null;
   }
   if (previewSource) {
-    try { previewSource.stop(); } catch (_) {}
+    try { previewSource.stop(); } catch (e) { console.error('Failed to stop preview source:', e); }
     previewSource = null;
   }
   stopGameAudio();
@@ -1531,6 +1532,7 @@ async function loadAudioForEditor() {
     showWaveform();
     updateAudioStatus();
   } catch (err) {
+    console.error('Failed to load audio for editor:', err);
     statusEl.textContent = '✗ Failed to load: ' + err.message;
     statusEl.className = 'audio-status';
   }
@@ -2160,14 +2162,17 @@ function renderBracket() {
 
   const current = findCurrentMatch(tournament);
   const winner = getTournamentWinner(tournament);
-  const matchStartable = canStartMatch().ok;
+  const matchCheck = canStartMatch();
+  const matchStartable = matchCheck.ok;
 
   const replayBtn = document.getElementById('bracket-replay-btn');
+  const bracketHint = document.getElementById('bracket-start-hint');
   if (winner) {
     document.getElementById('bracket-round-info').textContent = '🎉 Tournament complete!';
     document.getElementById('bracket-start-btn').textContent = '🏠 Home';
     document.getElementById('bracket-start-btn').onclick = () => showScreen('idle');
     document.getElementById('bracket-start-btn').disabled = false;
+    bracketHint.textContent = '';
     replayBtn.style.display = '';
   } else if (current) {
     const roundNames = getRoundNames(tournament.rounds.length);
@@ -2186,8 +2191,10 @@ function renderBracket() {
     document.getElementById('bracket-start-btn').textContent = '⚡ Start Match';
     document.getElementById('bracket-start-btn').onclick = startCurrentMatch;
     document.getElementById('bracket-start-btn').disabled = !matchStartable;
+    bracketHint.textContent = matchStartable ? '' : '⚠️ ' + matchCheck.reason;
     replayBtn.style.display = '';
   } else {
+    bracketHint.textContent = '';
     replayBtn.style.display = 'none';
   }
 
@@ -2581,11 +2588,11 @@ function startGameAudio(offsetSeconds, acStartTime) {
 
 function stopGameAudio() {
   if (audioSource) {
-    try { audioSource.stop(); } catch (_) {}
+    try { audioSource.stop(); } catch (e) { console.error('Failed to stop audio source:', e); }
     audioSource = null;
   }
   if (gameGainNode) {
-    try { gameGainNode.disconnect(); } catch (_) {}
+    try { gameGainNode.disconnect(); } catch (e) { console.error('Failed to disconnect game gain node:', e); }
     gameGainNode = null;
   }
 }
@@ -2763,7 +2770,7 @@ function playBeep(freq, duration) {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration + 0.05);
-  } catch (_) {}
+  } catch (e) { console.error('Failed to play beep:', e); }
 }
 
 /* ============================================================
