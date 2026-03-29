@@ -1101,8 +1101,9 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
       </div>
     </div>
 
-    <div style="padding-bottom:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+    <div style="padding-bottom:20px; display:flex; flex-direction:column; align-items:center; gap:8px;">
       <button class="btn btn-primary btn-lg" id="start-tournament-btn" onclick="startTournament()" disabled>🚀 Start Tournament</button>
+      <div id="start-tournament-hint" style="color:#ff9800; font-size:0.9rem; text-align:center;"></div>
     </div>
 
   </div>
@@ -1989,7 +1990,14 @@ function renderPlayerList() {
     `;
     list.appendChild(item);
   });
-  document.getElementById('start-tournament-btn').disabled = pendingPlayers.length < 2 || !canStartMatch().ok;
+  document.getElementById('start-tournament-btn').disabled = pendingPlayers.length < 2;
+  const hint = document.getElementById('start-tournament-hint');
+  if (pendingPlayers.length < 2) {
+    hint.textContent = 'Add at least 2 players to start.';
+  } else {
+    const check = canStartMatch();
+    hint.textContent = check.ok ? '' : '⚠️ ' + check.reason;
+  }
 }
 
 function addPlayer() {
