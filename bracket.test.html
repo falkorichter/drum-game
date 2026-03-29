@@ -536,6 +536,62 @@ section('Best-of-three: 2-0 sweep');
   eq(getTournamentWinner(b), 'A', 'A wins BO3 in 2-0 sweep');
 })();
 
+// ─── Bracket connector data: match indices for feeder lookups ───
+section('Match feeder indices (connector line mapping)');
+(function() {
+  // For any bracket, match m in round r is fed by matches 2m and 2m+1 in round r-1.
+  // Verify this relationship holds for visible (non-null-bye) matches.
+  for (var n = 2; n <= 16; n++) {
+    var b = createBracket(names(n));
+    for (var r = 1; r < b.rounds.length; r++) {
+      for (var m = 0; m < b.rounds[r].length; m++) {
+        var match = b.rounds[r][m];
+        if (match.isBye && !match.p1 && !match.p2) continue; // skip null-null byes
+        var f1Idx = m * 2;
+        var f2Idx = m * 2 + 1;
+        assert(f1Idx < b.rounds[r - 1].length, n + ' players: feeder1 index ' + f1Idx + ' in bounds for round ' + (r - 1));
+        assert(f2Idx < b.rounds[r - 1].length, n + ' players: feeder2 index ' + f2Idx + ' in bounds for round ' + (r - 1));
+      }
+    }
+  }
+})();
+
+// ─── Connector line counts for power-of-2 brackets ───
+section('Expected connector line counts');
+(function() {
+  // For a power-of-2 bracket with no hidden byes, the number of
+  // connector pairs equals total visible matches minus those in round 0.
+  function countVisibleMatches(b) {
+    var total = 0;
+    b.rounds.forEach(function(round) {
+      round.forEach(function(m) {
+        if (!(m.isBye && !m.p1 && !m.p2)) total++;
+      });
+    });
+    return total;
+  }
+  function countVisibleRound0(b) {
+    var total = 0;
+    b.rounds[0].forEach(function(m) {
+      if (!(m.isBye && !m.p1 && !m.p2)) total++;
+    });
+    return total;
+  }
+
+  // Power-of-2 brackets: all later-round matches should have exactly 2 feeders
+  var b4 = createBracket(names(4));
+  var expected4 = countVisibleMatches(b4) - countVisibleRound0(b4);
+  eq(expected4, 1, '4 players: 1 connector pair (final fed by 2 round-1 matches)');
+
+  var b8 = createBracket(names(8));
+  var expected8 = countVisibleMatches(b8) - countVisibleRound0(b8);
+  eq(expected8, 3, '8 players: 3 connector pairs');
+
+  var b16 = createBracket(names(16));
+  var expected16 = countVisibleMatches(b16) - countVisibleRound0(b16);
+  eq(expected16, 7, '16 players: 7 connector pairs');
+})();
+
 /* === Summary === */
 const sumEl = document.getElementById('summary');
 if (failed === 0) {

@@ -449,8 +449,24 @@ input[type="range"]::-webkit-slider-thumb {
   overflow-x: auto;
   padding: 20px;
   display: flex;
-  gap: 20px;
+  gap: 40px;
   align-items: flex-start;
+  position: relative;
+}
+
+.bracket-connectors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bracket-connectors path {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 2;
+  opacity: 0.45;
 }
 
 .bracket-round {
@@ -458,6 +474,8 @@ input[type="range"]::-webkit-slider-thumb {
   flex-direction: column;
   gap: 12px;
   min-width: 180px;
+  z-index: 1;
+  flex-shrink: 0;
 }
 .bracket-round-title {
   font-size: 0.75rem;
@@ -467,6 +485,11 @@ input[type="range"]::-webkit-slider-thumb {
   letter-spacing: 1px;
   text-align: center;
   margin-bottom: 4px;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 2;
+  padding: 4px 0;
 }
 
 .bracket-match-number {
@@ -553,6 +576,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .bracket-round { min-width: 200px; }
+.bracket-match { position: relative; }
 
 .bracket-stats-section {
   border-top: 2px solid var(--surface3);
@@ -2212,10 +2236,12 @@ function renderBracket() {
   body.innerHTML = '';
 
   const roundNames = getRoundNames(tournament.rounds.length);
+  const BASE_GAP = 12;
 
   tournament.rounds.forEach((round, rIdx) => {
     const col = document.createElement('div');
     col.className = 'bracket-round';
+    col.dataset.round = rIdx;
 
     const title = document.createElement('div');
     title.className = 'bracket-round-title';
@@ -2238,6 +2264,8 @@ function renderBracket() {
         (isCurrent ? ' current' : (match.winner ? ' completed' : '')) +
         (isReviewable ? ' reviewable' : '') +
         (isSelectable ? ' selectable' : '');
+      matchEl.dataset.round = rIdx;
+      matchEl.dataset.match = mIdx;
       if (isReviewable) {
         matchEl.onclick = () => showMatchReview(match, rIdx, mIdx);
       } else if (isSelectable) {
@@ -2296,6 +2324,7 @@ function renderBracket() {
   if (winner) {
     const col = document.createElement('div');
     col.className = 'bracket-round';
+    col.dataset.round = 'champion';
     col.innerHTML = `
       <div class="bracket-round-title">🏆 Champion</div>
       <div style="padding:20px;text-align:center;">
@@ -2306,6 +2335,184 @@ function renderBracket() {
   }
 
   renderBracketStats();
+
+  // Layout bracket with proper spacing and draw connector lines
+  requestAnimationFrame(() => {
+    layoutBracketSpacing(body, BASE_GAP);
+    requestAnimationFrame(() => drawBracketConnectors(body));
+  });
+}
+
+/* ----------------------------------------------------------------
+   layoutBracketSpacing  – vertically space later-round match cards
+   so each match is centred between its two feeder matches.
+   ---------------------------------------------------------------- */
+function layoutBracketSpacing(body, baseGap) {
+  if (!body || !tournament) return;
+
+  // Build map: matchEls[round][matchIdx] = element
+  var matchEls = {};
+  body.querySelectorAll('.bracket-match[data-round][data-match]').forEach(function(el) {
+    var r = parseInt(el.dataset.round);
+    var m = parseInt(el.dataset.match);
+    if (!matchEls[r]) matchEls[r] = {};
+    matchEls[r][m] = el;
+  });
+
+  var roundKeys = Object.keys(matchEls).map(Number).sort(function(a, b) { return a - b; });
+  if (roundKeys.length < 2) return;
+
+  var bodyRect = body.getBoundingClientRect();
+  function getCenter(el) {
+    var r = el.getBoundingClientRect();
+    return (r.top + r.bottom) / 2 - bodyRect.top + body.scrollTop;
+  }
+
+  // Process each round sequentially, adjusting positions based on the
+  // previous round's ACTUAL positions (which may have already been adjusted).
+  for (var i = 1; i < roundKeys.length; i++) {
+    var rIdx = roundKeys[i];
+    var prevRIdx = roundKeys[i - 1];
+    if (!matchEls[rIdx] || !matchEls[prevRIdx]) continue;
+
+    var col = body.querySelector('.bracket-round[data-round="' + rIdx + '"]');
+    if (col) col.style.gap = '0';
+
+    var mKeys = Object.keys(matchEls[rIdx]).map(Number).sort(function(a, b) { return a - b; });
+
+    for (var j = 0; j < mKeys.length; j++) {
+      var mIdx = mKeys[j];
+      var el = matchEls[rIdx][mIdx];
+      var f1 = matchEls[prevRIdx][mIdx * 2];
+      var f2 = matchEls[prevRIdx][mIdx * 2 + 1];
+
+      var desiredCenter;
+      if (f1 && f2) desiredCenter = (getCenter(f1) + getCenter(f2)) / 2;
+      else if (f1) desiredCenter = getCenter(f1);
+      else if (f2) desiredCenter = getCenter(f2);
+      else continue;
+
+      var elRect = el.getBoundingClientRect();
+      var elH = elRect.height;
+      var currentTop = elRect.top - bodyRect.top + body.scrollTop;
+      var desiredTop = desiredCenter - elH / 2;
+      var shift = desiredTop - currentTop;
+      var currentMargin = parseFloat(el.style.marginTop) || 0;
+      el.style.marginTop = Math.max(0, currentMargin + shift) + 'px';
+    }
+  }
+}
+
+/* ----------------------------------------------------------------
+   drawBracketConnectors  – SVG overlay with bracket lines between
+   feeder matches in round r-1 and their target match in round r.
+   ---------------------------------------------------------------- */
+function drawBracketConnectors(body) {
+  if (!body || !tournament) return;
+  // Remove previous SVG
+  const old = body.querySelector('.bracket-connectors');
+  if (old) old.remove();
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.classList.add('bracket-connectors');
+  svg.setAttribute('width', body.scrollWidth);
+  svg.setAttribute('height', body.scrollHeight);
+
+  // Build map: matchEls[round][matchIdx] = element
+  const matchEls = {};
+  body.querySelectorAll('.bracket-match[data-round][data-match]').forEach(el => {
+    const r = parseInt(el.dataset.round);
+    const m = parseInt(el.dataset.match);
+    if (!matchEls[r]) matchEls[r] = {};
+    matchEls[r][m] = el;
+  });
+
+  const bodyRect = body.getBoundingClientRect();
+  const scrollL = body.scrollLeft;
+  const scrollT = body.scrollTop;
+
+  function elCenter(el) {
+    const r = el.getBoundingClientRect();
+    return {
+      left: r.left - bodyRect.left + scrollL,
+      right: r.right - bodyRect.left + scrollL,
+      cy: (r.top + r.bottom) / 2 - bodyRect.top + scrollT
+    };
+  }
+
+  const roundKeys = Object.keys(matchEls).map(Number).sort((a, b) => a - b);
+
+  for (let i = 1; i < roundKeys.length; i++) {
+    const rIdx = roundKeys[i];
+    const prevRIdx = roundKeys[i - 1];
+    if (!matchEls[rIdx] || !matchEls[prevRIdx]) continue;
+
+    const matchKeys = Object.keys(matchEls[rIdx]).map(Number).sort((a, b) => a - b);
+
+    for (const mIdx of matchKeys) {
+      const targetEl = matchEls[rIdx][mIdx];
+      if (!targetEl) continue;
+
+      const feeder1El = matchEls[prevRIdx][mIdx * 2];
+      const feeder2El = matchEls[prevRIdx][mIdx * 2 + 1];
+      if (!feeder1El && !feeder2El) continue;
+
+      const target = elCenter(targetEl);
+      const feeders = [];
+      if (feeder1El) feeders.push(elCenter(feeder1El));
+      if (feeder2El) feeders.push(elCenter(feeder2El));
+
+      const feederRight = feeders[0].right;
+      const midX = (feederRight + target.left) / 2;
+
+      // Build SVG path: classic bracket connector shape
+      let d = '';
+      for (const f of feeders) {
+        // Horizontal from feeder right edge to midX
+        d += 'M ' + f.right + ' ' + f.cy + ' H ' + midX + ' ';
+      }
+      if (feeders.length === 2) {
+        // Vertical bar connecting the two feeders at midX
+        const y1 = Math.min(feeders[0].cy, feeders[1].cy);
+        const y2 = Math.max(feeders[0].cy, feeders[1].cy);
+        d += 'M ' + midX + ' ' + y1 + ' V ' + y2 + ' ';
+      }
+      // Horizontal from midX at target center-Y to target left edge
+      const junctionY = feeders.length === 2
+        ? (feeders[0].cy + feeders[1].cy) / 2
+        : feeders[0].cy;
+      d += 'M ' + midX + ' ' + junctionY + ' H ' + target.left + ' ';
+
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d);
+      svg.appendChild(path);
+    }
+  }
+
+  // Also draw a line from the final match to the champion column if present
+  const lastRoundIdx = roundKeys[roundKeys.length - 1];
+  if (matchEls[lastRoundIdx]) {
+    const championDiv = body.querySelector('[data-round="champion"]');
+    if (championDiv) {
+      const champContent = championDiv.querySelector('.game-title');
+      if (champContent && matchEls[lastRoundIdx][0]) {
+        const src = elCenter(matchEls[lastRoundIdx][0]);
+        const cr = champContent.getBoundingClientRect();
+        const champLeft = cr.left - bodyRect.left + scrollL;
+        const champCy = (cr.top + cr.bottom) / 2 - bodyRect.top + scrollT;
+        const midX = (src.right + champLeft) / 2;
+        let d = 'M ' + src.right + ' ' + src.cy + ' H ' + midX + ' ';
+        d += 'M ' + midX + ' ' + src.cy + ' V ' + champCy + ' ';
+        d += 'M ' + midX + ' ' + champCy + ' H ' + champLeft + ' ';
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+      }
+    }
+  }
+
+  body.insertBefore(svg, body.firstChild);
 }
 
 function getRoundNames(totalRounds) {

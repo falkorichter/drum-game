@@ -60,7 +60,14 @@ A competitive 2-player rhythm tournament game built as a single static HTML/JS p
 - **Pre-start validation** — the game prevents starting a tournament or match when no MP3 is loaded or when the mark position is not set.
 - Start buttons are disabled with a descriptive alert until audio is ready.
 
-### Export / Import ([PR #9](https://github.com/falkorichter/drum-game/pull/9))
+### Bracket Connector Lines & Layout ([PR #9](https://github.com/falkorichter/drum-game/pull/9))
+
+- **SVG connector lines** — classic bracket lines drawn between feeder matches and their target match in the next round, making the tournament flow visually clear.
+- **Proper bracket spacing** — later-round match cards are vertically centered between their two feeder matches using a two-pass layout algorithm.
+- **Sticky round titles** — round labels (Round 1, Quarter-Final, etc.) stay visible at the top when scrolling vertically, maintaining context for large tournaments.
+- **Champion connector** — a line connects the final match to the champion column when a winner is decided.
+
+### Export / Import ([PR #17](https://github.com/falkorichter/drum-game/pull/17))
 
 - **JSON export** — download the full tournament state (bracket, results, settings) as a portable `.json` file from the bracket screen.
 - **JSON import** — load a previously exported tournament from a `.json` file on the tournament setup screen. Includes validation and error feedback.
@@ -142,3 +149,12 @@ Open `export.test.html` in a browser to run the export/import unit tests.
 | License | MIT |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | AI/LLM tools | GitHub Copilot Coding Agent (Claude Sonnet) |
+
+### Contributing
+
+- Bump the version in the README Development Metadata section with each non-documentation commit.
+- Write comprehensive tests for new features in `bracket.test.html`.
+- Verify no external code conflicts before merging.
+- Document any AI/LLM tools used in the development process in this section.
+- When adding new localization keys, ensure they are translated to all supported languages.
+- Maintain `CHANGELOG.md` following [Keep a Changelog v1.1.0](https://keepachangelog.com/en/1.1.0/) format.
