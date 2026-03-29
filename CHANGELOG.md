@@ -8,14 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Internationalization (i18n) system with language selector in Settings
-- Translations for German (de), Spanish (es), French (fr), Japanese (ja), Portuguese (pt), and Chinese Simplified (zh_CN)
-- CHANGELOG.md following Keep a Changelog v1.1.0 format
-- package.json with semantic version tracking
-- .gitignore file
-- Development Metadata section in README
 - Hint message for disabled "Start Match" button on bracket screen
 - Console error logging for all error handlers
+- `.gitignore` file
 
 ### Changed
 - Disabled buttons now show explanatory hints instead of silently blocking interaction
@@ -23,37 +18,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Silent error swallowing in try/catch blocks now logs to console for debugging
 
-## [1.4.0] - 2025-06-01
+## [0.2.0] - 2026-03-29
 
 ### Added
-- Pre-start validation preventing tournament/match start without MP3 or mark position
-- Disabled start buttons with descriptive alerts until audio is ready
+- **JSON export** — download the full tournament state and settings as a portable JSON file from the bracket screen
+- **JSON import** — load a previously exported tournament from a JSON file on the tournament setup screen with validation and error reporting
+- **ASCII bracket export** — copy a text representation of the bracket to the clipboard (or download as `.txt`) for sharing in chats, emails, or documentation
+- `export.test.html` — unit tests for export/import roundtrip, validation, and ASCII bracket generation
+- `package.json` with semantic versioning (initial version `0.2.0`)
+- `CHANGELOG.md` following Keep a Changelog v1.1.0 format
 
-## [1.3.0] - 2025-05-01
-
-### Added
-- Click-to-play for all playable first-round matches
-- Best-of-three final match series with running score display
-- Player stats include individual game deviations from final series
-
-## [1.2.0] - 2025-04-01
+## [0.1.0] - 2025-01-01
 
 ### Added
-- Match numbering labels ("Match X / N") on bracket cards
+- Core gameplay — beat hit scoring, countdown, random song offset, auto-end, tie detection
+- Settings & audio — MP3 loading, waveform editor, preview, idle music, tournament name, player seed list
+- Tournament system — single-elimination bracket, bye handling, bracket visualisation, statistics, persistence
+- Match numbers ([PR #3](https://github.com/falkorichter/drum-game/pull/3))
+- Click-to-play & best-of-three final ([PR #5](https://github.com/falkorichter/drum-game/pull/5))
+- Song validation ([PR #7](https://github.com/falkorichter/drum-game/pull/7))
+- `bracket.test.html` — unit tests for bracket logic
 
-## [1.1.0] - 2025-03-01
-
-### Added
-- Core gameplay with beat hit scoring and color-coded ratings
-- 3-2-1-GO countdown with audio beeps
-- Random song offset for each match
-- Single-elimination tournament bracket with bye handling
-- Visual waveform editor with zoom
-- Settings persistence in localStorage
-- Projector-friendly dark theme with animations
-
-[Unreleased]: https://github.com/falkorichter/drum-game/compare/main...HEAD
-[1.4.0]: https://github.com/falkorichter/drum-game/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/falkorichter/drum-game/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/falkorichter/drum-game/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/falkorichter/drum-game/releases/tag/v1.1.0
+[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/falkorichter/drum-game/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/falkorichter/drum-game/releases/tag/v0.1.0

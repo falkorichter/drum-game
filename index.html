@@ -1101,6 +1101,14 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
       </div>
     </div>
 
+    <div class="card">
+      <h3>📥 Import Tournament</h3>
+      <p class="text-dim" style="margin-bottom:12px;font-size:0.85rem;">Load a previously exported tournament from a JSON file.</p>
+      <input type="file" id="import-tournament-file" accept=".json,application/json" style="display:none;" onchange="handleTournamentImport(event)">
+      <button class="btn btn-accent2 btn-sm" onclick="document.getElementById('import-tournament-file').click()">📂 Choose JSON File</button>
+      <div id="import-tournament-status" style="display:none; margin-top:8px; font-size:0.85rem;"></div>
+    </div>
+
     <div style="padding-bottom:20px; display:flex; flex-direction:column; align-items:center; gap:8px;">
       <button class="btn btn-primary btn-lg" id="start-tournament-btn" onclick="startTournament()" disabled>🚀 Start Tournament</button>
       <div id="start-tournament-hint" style="color:#ff9800; font-size:0.9rem; text-align:center;"></div>
@@ -1119,6 +1127,8 @@ textarea.form-control.seed-invalid { border-color: var(--accent1); }
       <div id="bracket-round-info" class="text-dim" style="font-size:0.85rem;"></div>
     </div>
     <div class="flex-row">
+      <button class="btn btn-secondary btn-sm" onclick="exportTournamentJSON()" title="Download tournament as JSON">📤 Export JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportBracketText()" title="Copy bracket as ASCII text">📋 Export Text</button>
       <button class="btn btn-secondary btn-sm" onclick="showScreen('tournament-setup')">← Setup</button>
     </div>
   </div>
@@ -2418,6 +2428,255 @@ function replayTournament() {
   tournament = createBracket(players);
   saveTournament(tournament);
   renderBracket();
+}
+
+/* ============================================================
+   EXPORT / IMPORT
+   ============================================================ */
+
+/**
+ * Build a portable export object containing tournament state and settings.
+ * Pure function — no side effects.
+ */
+function buildExportData(t, s) {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: {
+      tournamentName: s.tournamentName || 'Beat Challenge',
+      markPosition: s.markPosition,
+      startMin: s.startMin,
+      startMax: s.startMax,
+    },
+    tournament: t,
+  };
+}
+
+/**
+ * Validate an imported object and return { ok, data?, error? }.
+ */
+function validateImportData(obj) {
+  if (!obj || typeof obj !== 'object') {
+    return { ok: false, error: 'File does not contain a valid JSON object.' };
+  }
+  if (!obj.tournament || typeof obj.tournament !== 'object') {
+    return { ok: false, error: 'Missing "tournament" field in JSON.' };
+  }
+  const t = obj.tournament;
+  if (!Array.isArray(t.players) || t.players.length < 2) {
+    return { ok: false, error: 'Tournament must have at least 2 players.' };
+  }
+  if (!Array.isArray(t.rounds) || t.rounds.length === 0) {
+    return { ok: false, error: 'Tournament must have at least 1 round.' };
+  }
+  // Basic round structure check
+  for (let r = 0; r < t.rounds.length; r++) {
+    if (!Array.isArray(t.rounds[r])) {
+      return { ok: false, error: `Round ${r} is not an array.` };
+    }
+    for (let m = 0; m < t.rounds[r].length; m++) {
+      const match = t.rounds[r][m];
+      if (!match || typeof match !== 'object') {
+        return { ok: false, error: `Match ${m} in round ${r} is not a valid object.` };
+      }
+    }
+  }
+  return { ok: true, data: obj };
+}
+
+/**
+ * Download tournament as a JSON file.
+ */
+function exportTournamentJSON() {
+  if (!tournament) {
+    alert('No tournament to export.');
+    return;
+  }
+  try {
+    const data = buildExportData(tournament, settings);
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const name = (settings.tournamentName || 'tournament').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    a.href = url;
+    a.download = `${name}_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Export failed:', err);
+    alert('Export failed. See browser console for details.');
+  }
+}
+
+/**
+ * Handle file input for tournament import.
+ */
+function handleTournamentImport(event) {
+  const file = event.target.files && event.target.files[0];
+  const statusEl = document.getElementById('import-tournament-status');
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const obj = JSON.parse(e.target.result);
+      const result = validateImportData(obj);
+      if (!result.ok) {
+        console.error('Import validation failed:', result.error);
+        statusEl.style.display = '';
+        statusEl.style.color = 'var(--accent1)';
+        statusEl.textContent = '❌ ' + result.error;
+        return;
+      }
+      // Apply imported tournament
+      tournament = result.data.tournament;
+      saveTournament(tournament);
+      // Optionally update settings
+      if (result.data.settings) {
+        const s = result.data.settings;
+        if (s.tournamentName) settings.tournamentName = s.tournamentName;
+        if (s.markPosition !== undefined) settings.markPosition = s.markPosition;
+        if (s.startMin !== undefined) settings.startMin = s.startMin;
+        if (s.startMax !== undefined) settings.startMax = s.startMax;
+        saveSettings(settings);
+      }
+      statusEl.style.display = '';
+      statusEl.style.color = 'var(--success)';
+      statusEl.textContent = `✅ Imported "${settings.tournamentName}" with ${tournament.players.length} players.`;
+      // Navigate to bracket view
+      showScreen('bracket');
+    } catch (err) {
+      console.error('Import failed:', err);
+      statusEl.style.display = '';
+      statusEl.style.color = 'var(--accent1)';
+      statusEl.textContent = '❌ Invalid JSON file.';
+    }
+  };
+  reader.onerror = function () {
+    console.error('File read error:', reader.error);
+    statusEl.style.display = '';
+    statusEl.style.color = 'var(--accent1)';
+    statusEl.textContent = '❌ Could not read file.';
+  };
+  reader.readAsText(file);
+  // Reset the input so the same file can be re-imported
+  event.target.value = '';
+}
+
+/**
+ * Generate an ASCII text representation of the tournament bracket.
+ * Returns a string.
+ */
+function generateBracketASCII(t, tournamentSettings) {
+  if (!t || !t.rounds) return '';
+
+  const s = tournamentSettings || (typeof settings !== 'undefined' ? settings : {});
+  const roundNames = getRoundNames(t.rounds.length);
+  const winner = getTournamentWinner(t);
+
+  // Build columns: each column is an array of lines for one round
+  const columns = [];
+  t.rounds.forEach((round, rIdx) => {
+    const lines = [];
+    lines.push(roundNames[rIdx]);
+    lines.push('─'.repeat(roundNames[rIdx].length));
+
+    let visibleIdx = 0;
+    round.forEach(match => {
+      if (match.isBye && !match.p1 && !match.p2) return; // skip padding byes
+      visibleIdx++;
+      const p1 = match.p1 || 'TBD';
+      const p2 = match.p2 || 'TBD';
+      const p1Mark = match.winner === match.p1 && match.p1 ? '🏆' : '  ';
+      const p2Mark = match.winner === match.p2 && match.p2 ? '🏆' : '  ';
+      const p1Dev = match.p1Dev != null ? ` (${formatDeviation(match.p1Dev)})` : '';
+      const p2Dev = match.p2Dev != null ? ` (${formatDeviation(match.p2Dev)})` : '';
+
+      lines.push('');
+      lines.push(`  Match ${visibleIdx}:`);
+      lines.push(`    ${p1Mark} ${p1}${p1Dev}`);
+      lines.push(`       vs`);
+      lines.push(`    ${p2Mark} ${p2}${p2Dev}`);
+
+      // BO3 info for final
+      if (isFinalMatch(t, rIdx) && match.finalGames && match.finalGames.length > 0) {
+        const s1 = match.finalScoreP1 || 0;
+        const s2 = match.finalScoreP2 || 0;
+        lines.push(`    (Best of 3: ${s1} – ${s2})`);
+      }
+    });
+    columns.push(lines);
+  });
+
+  // If there's a champion, add that column
+  if (winner) {
+    columns.push(['🏆 Champion', '───────────', '', `  ${winner}`]);
+  }
+
+  // Find max height
+  const maxHeight = Math.max(...columns.map(c => c.length));
+  // Pad columns to same height
+  columns.forEach(col => {
+    while (col.length < maxHeight) col.push('');
+  });
+
+  // Find max width of each column
+  const colWidths = columns.map(col => Math.max(...col.map(line => line.length)) + 2);
+
+  // Compose final output line by line
+  const outputLines = [];
+  for (let row = 0; row < maxHeight; row++) {
+    const parts = columns.map((col, cIdx) => {
+      const text = col[row] || '';
+      return text.padEnd(colWidths[cIdx]);
+    });
+    outputLines.push(parts.join('│ '));
+  }
+
+  const title = s.tournamentName || 'Tournament';
+  const header = `${title} — ${t.players.length} players`;
+  return header + '\n' + '═'.repeat(header.length) + '\n\n' + outputLines.join('\n') + '\n';
+}
+
+/**
+ * Export bracket as text — copies to clipboard and shows a confirmation.
+ * Falls back to download if clipboard is not available.
+ */
+function exportBracketText() {
+  if (!tournament) {
+    alert('No tournament to export.');
+    return;
+  }
+  try {
+    const text = generateBracketASCII(tournament);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Bracket copied to clipboard!');
+      }).catch(err => {
+        console.error('Clipboard write failed, falling back to download:', err);
+        downloadTextFile(text, 'bracket.txt');
+      });
+    } else {
+      downloadTextFile(text, 'bracket.txt');
+    }
+  } catch (err) {
+    console.error('Text export failed:', err);
+    alert('Text export failed. See browser console for details.');
+  }
+}
+
+function downloadTextFile(text, filename) {
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function showMatchReview(match, roundIdx, matchIdx) {
