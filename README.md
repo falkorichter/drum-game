@@ -60,6 +60,12 @@ A competitive 2-player rhythm tournament game built as a single static HTML/JS p
 - **Pre-start validation** — the game prevents starting a tournament or match when no MP3 is loaded or when the mark position is not set.
 - Start buttons are disabled with a descriptive alert until audio is ready.
 
+### Export / Import ([PR #9](https://github.com/falkorichter/drum-game/pull/9))
+
+- **JSON export** — download the full tournament state (bracket, results, settings) as a portable `.json` file from the bracket screen.
+- **JSON import** — load a previously exported tournament from a `.json` file on the tournament setup screen. Includes validation and error feedback.
+- **ASCII bracket export** — copy a text representation of the bracket to the clipboard (or download as `.txt`) for sharing in chats, emails, or documentation.
+
 ### Visual Design
 
 - **Projector-friendly** dark theme with animated title, floating particle background, and confetti on champion reveal
@@ -123,3 +129,16 @@ Open `index.html` in any modern browser — no build step or server required.
 ### Tests
 
 Open `bracket.test.html` in a browser to run the bracket logic unit tests.
+
+Open `export.test.html` in a browser to run the export/import unit tests.
+
+---
+
+## Development Metadata
+
+| Field | Value |
+|-------|-------|
+| Version | 0.2.0 |
+| License | MIT |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+| AI/LLM tools | GitHub Copilot Coding Agent (Claude Sonnet) |
