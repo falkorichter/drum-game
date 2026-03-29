@@ -2152,6 +2152,7 @@ function renderBracket() {
 
   const current = findCurrentMatch(tournament);
   const winner = getTournamentWinner(tournament);
+  const matchStartable = canStartMatch().ok;
 
   const replayBtn = document.getElementById('bracket-replay-btn');
   if (winner) {
@@ -2176,7 +2177,7 @@ function renderBracket() {
     }
     document.getElementById('bracket-start-btn').textContent = '⚡ Start Match';
     document.getElementById('bracket-start-btn').onclick = startCurrentMatch;
-    document.getElementById('bracket-start-btn').disabled = !canStartMatch().ok;
+    document.getElementById('bracket-start-btn').disabled = !matchStartable;
     replayBtn.style.display = '';
   } else {
     replayBtn.style.display = 'none';
@@ -2205,8 +2206,8 @@ function renderBracket() {
       const isCurrent = current && current.roundIdx === rIdx && current.matchIdx === mIdx;
       // A match is reviewable if it completed (has a winner), is not a bye, and has real players
       const isReviewable = !match.isBye && match.winner && match.p1 && match.p2;
-      // A first-round match is selectable (clickable to play) if it's playable (in round 0)
-      const isSelectable = rIdx === 0 && !match.winner && !match.isBye && match.p1 && match.p2;
+      // A first-round match is selectable (clickable to play) if it's playable (in round 0) and settings are valid
+      const isSelectable = matchStartable && rIdx === 0 && !match.winner && !match.isBye && match.p1 && match.p2;
       const matchEl = document.createElement('div');
       matchEl.className = 'bracket-match' +
         (isCurrent ? ' current' : (match.winner ? ' completed' : '')) +
