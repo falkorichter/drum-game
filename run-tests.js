@@ -27,7 +27,7 @@ for (const file of testFiles) {
   console.log('='.repeat(60));
 
   const html = fs.readFileSync(filePath, 'utf-8');
-  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/i);
   if (!scriptMatch) {
     console.error(`  No <script> block found in ${file}`);
     totalFailed++;
