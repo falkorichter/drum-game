@@ -75,6 +75,51 @@ A competitive 2-player rhythm tournament game built as a single static HTML/JS p
 - **JSON import** — load a previously exported tournament from a `.json` file on the tournament setup screen. Includes validation and error feedback.
 - **ASCII bracket export** — copy a text representation of the bracket to the clipboard (or download as `.txt`) for sharing in chats, emails, or documentation.
 
+### Wireless Mode (`npm run wireless`)
+
+Phones on the **same Wi-Fi network** can act as virtual drum sticks — no physical keyboard required. This is an optional feature that requires running a small local relay server.
+
+#### Quick Start
+
+```bash
+# 1. Install the relay server dependency (one-time)
+npm install
+
+# 2. Start the relay server
+npm run wireless
+# ➜ prints local IP addresses, e.g.:
+#   📱 Phone URL  http://192.168.1.42:8765/companion
+#   🎮 Game URL   ws://192.168.1.42:8765
+```
+
+```
+# 3. In the main game (Settings → Wireless Mode):
+#    - Enable wireless mode
+#    - Enter the WebSocket URL printed above (e.g. ws://192.168.1.42:8765)
+#    - Optionally enable auto-connect
+
+# 4. On each phone — open the companion URL in a mobile browser:
+#    http://192.168.1.42:8765/companion
+#    - Select your player role (P1 or P2)
+#    - Optionally enable Motion Detection (accelerometer/gyro)
+#    - Or simply tap the large HIT button when the beat hits
+```
+
+#### How Timing Works
+
+The relay server has no concept of audio time — it simply relays messages. The game page receives a hit event and stamps it with the **Web Audio API `currentTime`** at that instant, then **subtracts half the measured round-trip time (RTT)** to back-date the hit to when it physically occurred on the phone.
+
+On a typical home Wi-Fi network the RTT is 1–5 ms, giving timing accuracy within ~3 ms — well within the ⚡ PERFECT threshold of 10 ms.
+
+#### Companion Page Features
+
+- **Player role selector** — P1 (key A) or P2 (key L)
+- **Motion detection** — uses the DeviceMotion API; strike the phone like a drum stick to trigger a hit. Adjustable sensitivity (5–60 m/s²), 600 ms cooldown between hits to avoid double-triggers
+- **iOS permission support** — prompts for `DeviceMotionEvent.requestPermission()` on iOS 13+
+- **Manual tap button** — large, touch-optimised HIT button as a reliable fallback
+- **RTT display** — shows measured round-trip latency so you can judge precision
+- **Auto-fill URL** — pre-fills the server address from the URL query param `?server=ws://…` or last saved value
+
 ### Visual Design
 
 - **Projector-friendly** dark theme with animated title, floating particle background, and confetti on champion reveal
@@ -135,11 +180,17 @@ Round 1 (4 matches)        Round 2 (2 matches)       Final
 
 Open `index.html` in any modern browser — no build step or server required.
 
+> **Wireless mode** requires running a small Node.js relay server (`npm run wireless`). See the [Wireless Mode](#wireless-mode-npm-run-wireless) section above.
+
+### Install (for wireless server or tests)
+
+```bash
+npm install    # installs ws (needed by wireless-server.js)
+```
+
 ### Tests
 
-Open `bracket.test.html` in a browser to run the bracket logic unit tests.
-
-Open `export.test.html` in a browser to run the export/import unit tests.
+Open `bracket.test.html`, `export.test.html`, or `wireless.test.html` in a browser to run the unit tests.
 
 **Run from the command line** (requires [Node.js](https://nodejs.org/) ≥ 18):
 
@@ -157,17 +208,18 @@ Tests are also executed automatically on every push and pull request via [GitHub
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3.1 |
+| Version | 0.4.3 |
 | License | MIT |
-| Node.js | ≥ 18 (for tests only) |
+| Node.js | ≥ 18 (for tests and wireless server) |
+| Dependencies | `ws@^8.18.0` (relay server only) |
 | CI | GitHub Actions (`tests.yml`) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | AI/LLM tools | GitHub Copilot Coding Agent (Claude Sonnet) |
 
 ### Contributing
 
-- Bump the version in the README Development Metadata section with each non-documentation commit.
-- Write comprehensive tests for new features in `bracket.test.html`.
+- Bump the version in `package.json` and the README Development Metadata section with each non-documentation commit.
+- Write comprehensive tests for new features in a dedicated `*.test.html` file.
 - Verify no external code conflicts before merging.
 - Document any AI/LLM tools used in the development process in this section.
 - When adding new localization keys, ensure they are translated to all supported languages.
