@@ -235,6 +235,19 @@
   <div class="card">
     <h2>📲 Motion Sensor (Accelerometer)</h2>
 
+    <!-- Shown when page is served over plain HTTP (non-localhost) -->
+    <div id="motion-https-warning" style="display:none;padding:10px 12px;border-radius:8px;background:rgba(255,68,68,0.12);border:1px solid rgba(255,68,68,0.3);margin-bottom:12px;">
+      <p style="font-size:0.82rem;color:#ff8888;line-height:1.5;">
+        ⚠️ <strong>HTTPS required for motion detection.</strong><br>
+        Your browser blocks the sensor API on plain HTTP from a network IP. Try one of these options:
+      </p>
+      <ul style="font-size:0.8rem;color:rgba(232,232,240,0.65);margin:6px 0 0 16px;line-height:1.8;">
+        <li>Use the <strong>tap button</strong> above instead (fully functional).</li>
+        <li>Access this page from the game computer as <code style="color:var(--accent2);">http://localhost:8765/companion</code> (localhost is always secure).</li>
+        <li>Set up a reverse proxy with HTTPS in front of the wireless server.</li>
+      </ul>
+    </div>
+
     <div id="motion-permission-card">
       <p class="help" style="margin-bottom:10px;">On iOS you need to grant permission to access the motion sensor.</p>
       <button class="btn btn-primary" onclick="requestMotionPermission()">Grant Motion Permission</button>
@@ -269,10 +282,10 @@
     <h2>ℹ️ How It Works</h2>
     <p class="help">
       1. Run <code style="color:var(--accent2)">npm run wireless</code> on the game computer.<br>
-      2. Open the URL it prints (e.g. <code style="color:var(--accent2)">http://192.168.x.x:8765/companion</code>) here on your phone.<br>
+      2. Open the companion URL in your phone's browser. For motion detection, use <code style="color:var(--accent2)">http://localhost:8765/companion</code> on the game computer (localhost is always secure), or set up HTTPS.<br>
       3. Enter the <code style="color:var(--accent2)">ws://</code> address in the Connection box above and tap Connect.<br>
       4. Select your player role (P1 or P2).<br>
-      5. Enable motion detection — or just tap the HIT button.<br>
+      5. Enable motion detection (requires HTTPS or localhost) — or just tap the HIT button.<br>
       6. When the game starts and the beat approaches, strike the phone like a drum stick! 🥁
     </p>
   </div>
@@ -313,9 +326,16 @@ const hitBtn      = document.getElementById('hit-btn');
   const auto   = params.get('server') || saved || guessServerUrl();
   serverUrlEl.value = auto;
 
-  // iOS motion permission button
-  if (typeof DeviceMotionEvent !== 'undefined' &&
-      typeof DeviceMotionEvent.requestPermission === 'function') {
+  // Detect non-secure context (HTTP from a non-localhost origin)
+  // The DeviceMotion API is restricted to secure contexts in Chrome Android and
+  // silently denied by iOS Safari unless the page is on HTTPS or localhost.
+  if (!window.isSecureContext) {
+    document.getElementById('motion-https-warning').style.display = '';
+    // Hide the iOS permission button — it won't work over HTTP anyway
+    document.getElementById('motion-permission-card').style.display = 'none';
+  } else if (typeof DeviceMotionEvent !== 'undefined' &&
+             typeof DeviceMotionEvent.requestPermission === 'function') {
+    // iOS 13+ permission model (only shown when page is on a secure context)
     document.getElementById('motion-permission-card').style.display = 'block';
   }
 
@@ -498,19 +518,32 @@ function handleManualHit(e) {
 function onMotionToggle(enabled) {
   motionEnabled = enabled;
   if (enabled) {
-    if (typeof DeviceMotionEvent !== 'undefined' &&
-        typeof DeviceMotionEvent.requestPermission !== 'function') {
-      // Android / non-permission model — just start listening
-      window.addEventListener('devicemotion', onDeviceMotion);
-      motionMsg.textContent = 'Motion detection active.';
-      motionMsg.className = 'info-msg ok';
-    } else if (typeof DeviceMotionEvent === 'undefined') {
-      motionMsg.textContent = 'DeviceMotion API not available on this device/browser.';
+    // Non-secure context: DeviceMotion is blocked by the browser.
+    if (!window.isSecureContext) {
+      motionMsg.textContent = 'Motion detection requires HTTPS (see warning above). Use the tap button instead.';
       motionMsg.className = 'info-msg error';
       document.getElementById('motion-toggle').checked = false;
       motionEnabled = false;
+      return;
     }
-    // iOS permission flow is handled via the button above
+
+    if (typeof DeviceMotionEvent === 'undefined') {
+      motionMsg.textContent = 'DeviceMotion API not supported by this browser.';
+      motionMsg.className = 'info-msg error';
+      document.getElementById('motion-toggle').checked = false;
+      motionEnabled = false;
+    } else if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      // iOS 13+: permission must be granted via the button above first.
+      motionMsg.textContent = 'Tap "Grant Motion Permission" above, then try again.';
+      motionMsg.className = 'info-msg';
+      document.getElementById('motion-toggle').checked = false;
+      motionEnabled = false;
+    } else {
+      // Android and other non-permission-gated browsers — start listening directly.
+      window.addEventListener('devicemotion', onDeviceMotion);
+      motionMsg.textContent = 'Motion detection active.';
+      motionMsg.className = 'info-msg ok';
+    }
   } else {
     window.removeEventListener('devicemotion', onDeviceMotion);
     motionMsg.textContent = '';
@@ -519,6 +552,12 @@ function onMotionToggle(enabled) {
 }
 
 async function requestMotionPermission() {
+  // iOS Safari returns 'denied' silently on non-HTTPS pages — detect early.
+  if (!window.isSecureContext) {
+    motionMsg.textContent = 'Motion permission requires HTTPS. Use the tap button instead, or open this page over a secure connection.';
+    motionMsg.className = 'info-msg error';
+    return;
+  }
   try {
     const result = await DeviceMotionEvent.requestPermission();
     if (result === 'granted') {
@@ -528,7 +567,7 @@ async function requestMotionPermission() {
       motionMsg.textContent = 'Motion permission granted.';
       motionMsg.className = 'info-msg ok';
     } else {
-      motionMsg.textContent = 'Motion permission denied.';
+      motionMsg.textContent = 'Motion permission denied by the system. Check your browser/OS settings.';
       motionMsg.className = 'info-msg error';
     }
   } catch (e) {

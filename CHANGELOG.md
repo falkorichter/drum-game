@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-03-30
+
+### Fixed
+- Companion page motion detection now correctly detects non-secure contexts (plain HTTP from a LAN IP) and shows a clear HTTPS warning instead of the misleading "DeviceMotion API not available" message on Chrome Android or the silent "Motion permission denied" on iOS Safari. The tap button is highlighted as the reliable alternative.
+- iOS permission button is now hidden when page is not in a secure context (it would always be silently denied anyway).
+- `requestMotionPermission()` now checks `window.isSecureContext` before calling `DeviceMotionEvent.requestPermission()` and shows an actionable error message.
+- Improved error message when `DeviceMotionEvent.requestPermission()` returns `'denied'` to distinguish system-level denial from the HTTPS issue.
+
 ## [0.4.0] - 2026-03-29
 
 ### Added
@@ -83,7 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Song validation ([PR #7](https://github.com/falkorichter/drum-game/pull/7))
 - `bracket.test.html` — unit tests for bracket logic
 
-[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/falkorichter/drum-game/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/falkorichter/drum-game/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/falkorichter/drum-game/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/falkorichter/drum-game/compare/v0.2.0...v0.3.0
