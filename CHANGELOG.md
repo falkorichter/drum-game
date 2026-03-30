@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-03-30
+
+### Fixed
+- **companion.html**: `localStorage.setItem/getItem` now wrapped in try-catch, fixing a `QuotaExceededError` (or `SecurityError`) crash on iOS Safari in Private Browsing mode — this was the root cause of the "Script error." reported via Eruda on iPad.
+- **companion.html**: Added a visible error banner (`#global-error-banner`) and global `window.onerror` / `unhandledrejection` handlers so JavaScript errors are displayed on the page itself, removing the need for Eruda or devtools for mobile debugging.
+
 ## [0.4.2] - 2026-03-30
 
 ### Added
@@ -99,7 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Song validation ([PR #7](https://github.com/falkorichter/drum-game/pull/7))
 - `bracket.test.html` — unit tests for bracket logic
 
-[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/falkorichter/drum-game/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/falkorichter/drum-game/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/falkorichter/drum-game/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/falkorichter/drum-game/compare/v0.3.1...v0.4.0

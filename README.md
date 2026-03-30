@@ -208,7 +208,7 @@ Tests are also executed automatically on every push and pull request via [GitHub
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4.2 |
+| Version | 0.4.3 |
 | License | MIT |
 | Node.js | ≥ 18 (for tests and wireless server) |
 | Dependencies | `ws@^8.18.0` (relay server only) |

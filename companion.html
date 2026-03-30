@@ -229,6 +229,9 @@
 </head>
 <body>
 
+<!-- Visible error banner (shown on uncaught JS errors — useful for mobile debugging) -->
+<div id="global-error-banner" style="display:none;background:#7a0000;color:#ffcccc;padding:10px 14px;font-size:0.82rem;line-height:1.5;word-break:break-all;"></div>
+
 <header>
   <div id="status-dot"></div>
   <h1>🥁 Wireless Drum Stick</h1>
@@ -345,6 +348,27 @@
 <script>
 'use strict';
 
+/* ── Global error display (helps debug on mobile without devtools) ─── */
+window.addEventListener('error', (evt) => {
+  console.error('Uncaught error:', evt.message, evt.filename, evt.lineno);
+  const errDiv = document.getElementById('global-error-banner');
+  if (errDiv) {
+    errDiv.textContent = '⚠️ ' + (evt.message || 'Script error') +
+      (evt.lineno ? ' (line ' + evt.lineno + ')' : '');
+    errDiv.style.display = 'block';
+  }
+});
+
+window.addEventListener('unhandledrejection', (evt) => {
+  console.error('Unhandled promise rejection:', evt.reason);
+  const errDiv = document.getElementById('global-error-banner');
+  if (errDiv) {
+    const msg = (evt.reason && evt.reason.message) ? evt.reason.message : String(evt.reason);
+    errDiv.textContent = '⚠️ Unhandled rejection: ' + msg;
+    errDiv.style.display = 'block';
+  }
+});
+
 /* ── State ─────────────────────────────────────────────────── */
 let ws = null;
 let player = 1;           // 1 or 2
@@ -372,7 +396,10 @@ const hitBtn      = document.getElementById('hit-btn');
 (function init() {
   // Auto-fill server URL from query param or localStorage
   const params = new URLSearchParams(location.search);
-  const saved  = localStorage.getItem('dg_companion_url');
+  let saved = '';
+  try { saved = localStorage.getItem('dg_companion_url') || ''; } catch (e) {
+    console.warn('localStorage unavailable:', e);
+  }
   const auto   = params.get('server') || saved || guessServerUrl();
   serverUrlEl.value = auto;
 
@@ -455,7 +482,9 @@ function connect() {
 
   ws.addEventListener('open', () => {
     setStatus('connected');
-    localStorage.setItem('dg_companion_url', url);
+    try { localStorage.setItem('dg_companion_url', url); } catch (e) {
+      console.warn('localStorage unavailable (private browsing?):', e);
+    }
     showConnMsg('Connected! You are Player ' + player + '.', 'ok');
     startPing();
   });
