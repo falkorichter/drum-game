@@ -35,3 +35,5 @@ localize the frontend, add a language selector in settings if present
 don't disable buttons without showing a hint when people click on and it to know why it is disabled
 
 log all errors to the console so I can see what's going on if neccesary
+
+add screenshots to pull request whenever possible
