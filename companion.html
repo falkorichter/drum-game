@@ -184,6 +184,47 @@
 
   /* Motion permission overlay */
   #motion-permission-card { display: none; }
+
+  /* Quick mode (pre-selected player via ?player=1 or ?player=2) */
+  body.quick-mode .full-mode-only { display: none; }
+  body:not(.quick-mode) .quick-mode-only { display: none; }
+
+  /* Larger hit button in quick mode */
+  body.quick-mode #hit-btn {
+    padding: 60px 16px;
+    font-size: 3.5rem;
+  }
+
+  /* Player badge shown in header in quick mode */
+  #player-badge {
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+  }
+  #player-badge.p1 { border-color: var(--p1); color: var(--p1); }
+  #player-badge.p2 { border-color: var(--p2); color: var(--p2); }
+
+  /* Connecting overlay shown in quick mode while connecting */
+  #quick-connecting {
+    text-align: center;
+    padding: 14px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  /* Settings link in quick mode */
+  #settings-link {
+    text-align: center;
+    padding: 6px 0 2px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+  #settings-link a {
+    color: var(--accent2);
+    text-decoration: none;
+  }
 </style>
 </head>
 <body>
@@ -191,13 +232,14 @@
 <header>
   <div id="status-dot"></div>
   <h1>🥁 Wireless Drum Stick</h1>
+  <span id="player-badge" class="quick-mode-only"></span>
   <span id="status-label">Disconnected</span>
 </header>
 
 <div class="scroll-area">
 
   <!-- Connection -->
-  <div class="card" id="connection-card">
+  <div class="card full-mode-only" id="connection-card">
     <h2>📡 Connection</h2>
     <div class="form-row">
       <input type="text" id="server-url" placeholder="ws://192.168.x.x:8765" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
@@ -207,7 +249,7 @@
   </div>
 
   <!-- Player selection -->
-  <div class="card">
+  <div class="card full-mode-only">
     <h2>🎮 Your Role</h2>
     <div class="player-btns">
       <button class="player-btn p1 selected" id="btn-p1" onclick="selectPlayer(1)">
@@ -221,6 +263,9 @@
     </div>
   </div>
 
+  <!-- Quick-mode: connecting status (shown while auto-connecting) -->
+  <div id="quick-connecting" class="quick-mode-only" style="display:none;"></div>
+
   <!-- HIT button -->
   <div class="card">
     <h2>🥁 Hit</h2>
@@ -228,7 +273,7 @@
       HIT!
     </button>
     <div id="last-hit"></div>
-    <p class="help" style="margin-top:8px;">Tap the button above <em>or</em> use the motion sensor below to send a hit to the game.</p>
+    <p class="help full-mode-only" style="margin-top:8px;">Tap the button above <em>or</em> use the motion sensor below to send a hit to the game.</p>
   </div>
 
   <!-- Motion sensor -->
@@ -278,7 +323,7 @@
   </div>
 
   <!-- Help -->
-  <div class="card">
+  <div class="card full-mode-only">
     <h2>ℹ️ How It Works</h2>
     <p class="help">
       1. Run <code style="color:var(--accent2)">npm run wireless</code> on the game computer.<br>
@@ -288,6 +333,11 @@
       5. Enable motion detection (requires HTTPS or localhost) — or just tap the HIT button.<br>
       6. When the game starts and the beat approaches, strike the phone like a drum stick! 🥁
     </p>
+  </div>
+
+  <!-- Quick mode: settings link -->
+  <div id="settings-link" class="quick-mode-only">
+    <a href="javascript:exitQuickMode()">⚙ Show full settings</a>
   </div>
 
 </div><!-- /scroll-area -->
@@ -326,6 +376,24 @@ const hitBtn      = document.getElementById('hit-btn');
   const auto   = params.get('server') || saved || guessServerUrl();
   serverUrlEl.value = auto;
 
+  // Quick mode: ?player=1 or ?player=2 — auto-select player, hide setup cards, auto-connect
+  const playerParam = parseInt(params.get('player'), 10);
+  if (playerParam === 1 || playerParam === 2) {
+    document.body.classList.add('quick-mode');
+    document.title = `🥁 Player ${playerParam} — Drum Stick`;
+    // Update player badge in header
+    const badge = document.getElementById('player-badge');
+    badge.textContent = `P${playerParam}`;
+    badge.className = `quick-mode-only p${playerParam}`;
+    // Select the player (updates hit button style etc.)
+    selectPlayer(playerParam);
+    // Show connecting notice, then auto-connect
+    const qc = document.getElementById('quick-connecting');
+    qc.style.display = '';
+    qc.textContent = `Connecting to game…`;
+    connect();
+  }
+
   // Detect non-secure context (HTTP from a non-localhost origin)
   // The DeviceMotion API is restricted to secure contexts in Chrome Android and
   // silently denied by iOS Safari unless the page is on HTTPS or localhost.
@@ -341,6 +409,12 @@ const hitBtn      = document.getElementById('hit-btn');
 
   updateHitBtnStyle();
 })();
+
+/* Exit quick mode (show full settings) */
+function exitQuickMode() {
+  document.body.classList.remove('quick-mode');
+  document.getElementById('quick-connecting').style.display = 'none';
+}
 
 function guessServerUrl() {
   // Guess the WS URL from the page's own origin (if served by wireless-server)
@@ -446,6 +520,12 @@ function setStatus(state) {
 function showConnMsg(text, cls) {
   connMsg.textContent = text;
   connMsg.className = 'info-msg ' + (cls || '');
+  // Mirror to the quick-mode connecting notice
+  const qc = document.getElementById('quick-connecting');
+  if (qc && document.body.classList.contains('quick-mode')) {
+    qc.textContent = text;
+    qc.className = 'quick-mode-only info-msg ' + (cls || '');
+  }
 }
 
 /* ── Ping / RTT ────────────────────────────────────────────── */

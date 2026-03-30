@@ -11,18 +11,21 @@
  *   npm run wireless
  *
  * The server:
- *  - Serves companion.html at GET /companion
+ *  - Serves companion.html at GET /companion (full UI)
+ *  - Serves quick-mode at GET /p1  (Player 1 auto-connect minimal UI)
+ *  - Serves quick-mode at GET /p2  (Player 2 auto-connect minimal UI)
  *  - Accepts WebSocket upgrades at ws://<host>:<port>
  *  - Relays every message received from any client to all OTHER connected clients
- *  - Prints local IP addresses so you can easily point your phone at the right URL
+ *  - Prints ASCII QR codes for P1 and P2 quick URLs on startup
  */
 
 'use strict';
 
-const http  = require('http');
-const path  = require('path');
-const fs    = require('fs');
-const os    = require('os');
+const http    = require('http');
+const path    = require('path');
+const fs      = require('fs');
+const os      = require('os');
+const qr      = require('qrcode-terminal');
 const { WebSocketServer } = require('ws');
 
 const PORT = parseInt(process.env.PORT || process.argv[2] || '8765', 10);
@@ -30,6 +33,18 @@ const PORT = parseInt(process.env.PORT || process.argv[2] || '8765', 10);
 /* ── HTTP server (serves companion.html) ─────────────────────────────── */
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
+
+  // /p1 and /p2 redirect to companion with the player pre-set
+  if (url === '/p1') {
+    res.writeHead(302, { Location: `/companion?player=1` });
+    res.end();
+    return;
+  }
+  if (url === '/p2') {
+    res.writeHead(302, { Location: `/companion?player=2` });
+    res.end();
+    return;
+  }
 
   if (url === '/' || url === '/companion' || url === '/companion.html') {
     const filePath = path.join(__dirname, 'companion.html');
@@ -112,24 +127,73 @@ function broadcast(obj, exclude) {
   }
 }
 
-/* ── Start & print connection info ───────────────────────────────────── */
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('\n🥁  Drum Game — Wireless Server\n');
-  console.log(`   WebSocket   ws://localhost:${PORT}`);
-  console.log(`   Companion   http://localhost:${PORT}/companion\n`);
-
-  // Print all non-loopback IPv4 addresses so phones can connect
+/* ── Collect local network IPs ───────────────────────────────────────── */
+function getLocalIPs() {
+  const ips = [];
   const ifaces = os.networkInterfaces();
   for (const name of Object.keys(ifaces)) {
     for (const iface of ifaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        console.log(`   📱 Phone URL  http://${iface.address}:${PORT}/companion`);
-        console.log(`   🎮 Game URL   ws://${iface.address}:${PORT}`);
+        ips.push(iface.address);
       }
     }
   }
+  return ips;
+}
 
-  console.log('\n   Press Ctrl+C to stop.\n');
+/* ── Print QR codes sequentially (callback-based) ───────────────────── */
+function printQRCode(label, url, callback) {
+  console.log(`  ${label}`);
+  console.log(`  ${url}`);
+  qr.generate(url, { small: true }, (qrStr) => {
+    // Indent each line by 2 spaces for readability
+    const indented = qrStr.split('\n').map(l => '  ' + l).join('\n');
+    console.log(indented);
+    if (callback) callback();
+  });
+}
+
+/* ── Start & print connection info ───────────────────────────────────── */
+server.listen(PORT, '0.0.0.0', () => {
+  const ips = getLocalIPs();
+
+  console.log('\n🥁  Drum Game — Wireless Server\n');
+
+  if (ips.length === 0) {
+    // Fallback: no external network found, show localhost only
+    const p1 = `http://localhost:${PORT}/companion?player=1`;
+    const p2 = `http://localhost:${PORT}/companion?player=2`;
+    console.log('  (No external network interface found — showing localhost URLs)\n');
+    printQRCode('🎮 Player 1 (localhost)', p1, () => {
+      printQRCode('🎮 Player 2 (localhost)', p2, () => {
+        console.log(`  🎮 Game WebSocket  ws://localhost:${PORT}`);
+        console.log('\n  Press Ctrl+C to stop.\n');
+      });
+    });
+    return;
+  }
+
+  // Print QR codes for each local IP
+  const ip = ips[0]; // primary interface
+  const p1Url = `http://${ip}:${PORT}/companion?player=1`;
+  const p2Url = `http://${ip}:${PORT}/companion?player=2`;
+
+  if (ips.length > 1) {
+    console.log(`  (Multiple interfaces found: ${ips.join(', ')} — using ${ip})\n`);
+  }
+
+  printQRCode('📱 Player 1', p1Url, () => {
+    printQRCode('📱 Player 2', p2Url, () => {
+      console.log(`  🎮 Game WebSocket  ws://${ip}:${PORT}\n`);
+      if (ips.length > 1) {
+        for (const extraIp of ips.slice(1)) {
+          console.log(`     Also available on  ws://${extraIp}:${PORT}`);
+        }
+        console.log('');
+      }
+      console.log('  Press Ctrl+C to stop.\n');
+    });
+  });
 });
 
 server.on('error', (err) => {

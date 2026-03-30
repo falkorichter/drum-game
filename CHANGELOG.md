@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-03-30
+
+### Added
+- **Quick-mode companion URLs** — `/p1` and `/p2` shortcuts redirect to `companion.html?player=1` and `companion.html?player=2` respectively. These auto-select the player role and auto-connect to the WebSocket relay on page load, showing a minimal UI with only the HIT button and motion sensor visible.
+- **ASCII QR codes on startup** — `wireless-server.js` now prints ASCII QR codes (via `qrcode-terminal`) for the P1 and P2 quick URLs at server startup, making it trivial to scan-and-play from a phone without typing any URL.
+- **`qrcode-terminal` dependency** added to `package.json` for terminal QR code rendering.
+- `exitQuickMode()` function lets users tap "Show full settings" from the minimal companion UI to access the full connection/settings view.
+
 ## [0.4.1] - 2026-03-30
 
 ### Fixed
@@ -91,7 +99,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Song validation ([PR #7](https://github.com/falkorichter/drum-game/pull/7))
 - `bracket.test.html` — unit tests for bracket logic
 
-[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/falkorichter/drum-game/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/falkorichter/drum-game/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/falkorichter/drum-game/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/falkorichter/drum-game/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/falkorichter/drum-game/compare/v0.3.0...v0.3.1

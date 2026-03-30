@@ -1,6 +1,6 @@
 {
   "name": "drum-game",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "A competitive 2-player rhythm tournament game — Beat Challenge",
   "private": true,
   "homepage": "https://falkorichter.github.io/drum-game/",
@@ -9,6 +9,7 @@
     "wireless": "node wireless-server.js"
   },
   "dependencies": {
+    "qrcode-terminal": "^0.12.0",
     "ws": "^8.18.0"
   },
   "repository": {
